@@ -1,4 +1,4 @@
-# FETools Code Review CLI
+# Code Review CLI
 
 A small Node.js CLI to run a GPT-powered code review on a Perforce changelist.
 
