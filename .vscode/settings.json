@@ -1,3 +1,5 @@
 {
   "workbench.iconTheme": "material-icon-theme",
+  "cSpell.minWordLength": 4,
+  "cSpell.allowCompoundWords": true,
 }

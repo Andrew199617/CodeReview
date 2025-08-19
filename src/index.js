@@ -48,8 +48,8 @@ async function main()
   if (opts.dryRun) 
   {
     await perforce.ensureAvailable();
-    const arrFiles = await perforce.getChangelistFiles(nCl);
     const strDescribe = await perforce.getDescribeOutput(nCl, !!opts.shelved);
+    const arrFiles = runner.parseDepotFilesFromDescribe(strDescribe);
     console.log(`Changelist ${nCl} files:`);
     for (const strDepotFile of arrFiles) 
     {
@@ -65,7 +65,14 @@ async function main()
   }
 
   const strOutDir = path.join(path.resolve(opts.out), `CL_${nCl}`);
-  const res = await runner.run(nCl, opts.instructions, strOutDir, !!opts.shelved, !!opts.summary, opts.concurrency);
+  const res = await runner.run({
+    cl: nCl,
+    instructionsFile: opts.instructions,
+    outDir: strOutDir,
+    shelved: !!opts.shelved,
+    summary: !!opts.summary,
+    concurrency: opts.concurrency,
+  });
   console.log(`Done. Output: ${strOutDir}. Files reviewed: ${res.nFiles}`);
 }
 

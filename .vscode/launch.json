@@ -1,0 +1,45 @@
+{
+  "$schema": "vscode://schemas/launch",
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Run Code Review",
+      "program": "${workspaceFolder}/src/index.js",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "envFile": "${workspaceFolder}/.env",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "args": [
+        "--cl",
+        "${input:clNumber}",
+        "--instructions",
+        "${workspaceFolder}/review_instructions.txt"
+      ]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Dry Run (no OpenAI)",
+      "program": "${workspaceFolder}/src/index.js",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--cl",
+        "${input:clNumber}",
+        "--instructions",
+        "${workspaceFolder}/review_instructions.txt",
+        "--dry-run"
+      ]
+    }
+  ],
+  "inputs": [
+    {
+      "id": "clNumber",
+      "type": "promptString",
+      "description": "Perforce changelist number",
+      "default": "123456"
+    }
+  ]
+}
