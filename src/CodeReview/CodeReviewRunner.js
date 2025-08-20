@@ -1,5 +1,5 @@
 import path from 'path';
-import { ensureDir, readText, sanitizeFileName, writeText } from './FsUtils.js';
+import { ensureDir, readText, sanitizeFileName, writeText } from '../services/FsUtils.js';
 
 export class CodeReviewRunner {
   constructor(perforce, reviewer) {
