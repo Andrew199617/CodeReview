@@ -3,8 +3,8 @@ import { Command } from 'commander';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { AIReviewer } from './services/AIReviewer.js';
-import { CodeReviewRunner } from './services/CodeReviewRunner.js';
+import { AIReviewer } from './CodeReview/AIReviewer.js';
+import { CodeReviewRunner } from './CodeReview/CodeReviewRunner.js';
 import { PerforceService } from './services/PerforceService.js';
 
 dotenv.config();

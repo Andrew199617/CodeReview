@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "publisher": "local",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Andrew199617/CodeReview"
+  },
   "displayName": "Perforce Code Review",
   "description": "Adds a simple Perforce Code Review tool. Code review coworkers code from VSCode. Use your own styling to view code instead of Swarm.",
   "engines": {
