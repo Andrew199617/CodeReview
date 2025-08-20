@@ -1,0 +1,13 @@
+Review focus:
+- Correctness, logic bugs, missed edge cases.
+- Performance issues (time/space), unnecessary work.
+- Security concerns, input validation, secrets, unsafe patterns.
+- Maintainability: clarity, naming, duplication, dead code.
+- API and behavior changes: breaking changes, backwards compat.
+- Tests: additions/updates needed, gaps.
+- Style consistency with existing codebase.
+
+Output format:
+- Then list issues grouped by severity: Blocker, Major, Minor, Nit.
+- Quote small code excerpts when helpful.
+- Provide concrete suggestions.

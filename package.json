@@ -3,6 +3,61 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "publisher": "local",
+  "displayName": "Perforce Code Review",
+  "description": "Adds a simple Perforce Code Review tool. Code review coworkers code from VSCode. Use your own styling to view code instead of Swarm.",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./src/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "perforce",
+          "title": "Perforce Code Review",
+          "icon": "./media/perforce.svg"
+        }
+      ]
+    },
+    "views": {
+      "perforce": [
+        {
+          "id": "perforce.shelvedFiles",
+          "name": "Shelved Files",
+          "icon": "./media/perforce.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "perforce.shelvedFiles.find",
+        "title": "Find Shelved by CL"
+      }
+      ,
+      {
+        "command": "perforce.shelvedFiles.diffSelected",
+        "title": "Diff Shelved File"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "perforce.shelvedFiles.find",
+          "when": "view == perforce.shelvedFiles",
+          "group": "navigation@1"
+        }
+      ]
+      ,
+      "view/item/context": [
+        {
+          "command": "perforce.shelvedFiles.diffSelected",
+          "when": "view == perforce.shelvedFiles && viewItem == shelvedFile",
+          "group": "inline"
+        }
+      ]
+    }
+  },
   "bin": {
     "code-review-perforce": "./src/index.js"
   },
