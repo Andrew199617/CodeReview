@@ -6,6 +6,32 @@ applyTo: '**'
 - Always add "this." before a property or a member or a method.
 - When creating the variable for a for loop prefer i over nIndex/nIdx etc.
 
+- Always add jsdoc to functions in javascript. The most important information to include is the function's purpose, parameters, and return value. It's a way of getting type safety if its in the params. Always use @description and don't add return/enters between jsdoc tags.
+
+Use @returns.
+Bad:
+```
+/** Returns a list of shelved changelist numbers for the given user. */
+```
+Good:
+```
+/** @returns {number[]} Returns a list of shelved changelist numbers for the given user. */
+```
+
+Don't describe an empty function or constructor. 
+Bad:
+```
+/**
+  * ConfigService provides access to perforce review configuration.
+  */
+constructor() {
+}
+```
+Good: 
+```
+constructor() { }
+```
+
 Always add braces to an if statement. 
 Good:
 ```

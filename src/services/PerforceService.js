@@ -16,8 +16,9 @@ export class PerforceService {
 
   /** Ensures `p4` is available by executing `p4 -V`. */
   async ensureAvailable() {
-    await this.run('p4', ['-V']);
-  }
+    const p4Available = await this.run('p4', ['-V']);
+    return p4Available.includes('Perforce - The Fast Software Configuration Management System');
+  } 
 
   /** Returns a list of depot files from `p4 describe -s <cl>`. */
   async getChangelistFiles(nCl) {
@@ -76,7 +77,10 @@ export class PerforceService {
    * Internally runs `p4 describe -s -S` and parses the result.
    */
   async getShelvedFilesFromChangelist(nCl) {
-    await this.ensureAvailable();
+    if (!await this.ensureAvailable()) {
+      return [];
+    }
+
     const strOut = await this.getDescribeSummaryOutput(nCl, true);
     const arrFiles = [];
     const setSeen = new Set();
@@ -117,5 +121,26 @@ export class PerforceService {
   /** Normalizes/sanitizes depot paths if needed. Currently a passthrough. */
   sanitizeDepotPath(strPath) {
     return strPath;
+  }
+
+  /** Returns a list of shelved changelist numbers for the given user. */
+  async getPendingChangelistsForUser(strUser) {
+    if (!await this.ensureAvailable()) {
+      return [];
+    }
+
+    // Use 'changes' (alias of 'changelists') and filter by shelved status
+    const out = await this.run('p4', ['changes', '-u', String(strUser), '-s', 'shelved']);
+    const arr = [];
+
+    for (const line of String(out || '').split(/\r?\n/)) {
+      // Example: Change 123456 by user@client on 2025/08/20 'desc'
+      const matches = line.match(/^Change\s+(\d+)\b/);
+      if (matches) {
+        arr.push(Number(matches[1]));
+      }
+    }
+
+    return arr;
   }
 }

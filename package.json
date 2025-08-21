@@ -15,6 +15,18 @@
   },
   "main": "./src/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "Perforce Options",
+      "properties": {
+        "perforce.reviewUsers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "markdownDescription": "List of Perforce usernames whose shelved changelists should appear in the Shelved Files view.",
+          "scope": "application"
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {

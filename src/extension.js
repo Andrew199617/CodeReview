@@ -1,19 +1,31 @@
+import dotenv from 'dotenv';
 import * as vscode from 'vscode';
 import { ShelvedFilesController } from './extension/ShelvedFilesController.js';
-import { ShelvedFilesTreeDataProvider } from './extension/ShelvedFilesTreeDataProvider.js';
+import { ShelvedFilesTreeView } from './extension/ShelvedFilesTreeDataProvider.js';
+import { ConfigService } from './services/ConfigService.js';
+
+dotenv.config();
 
 /**
  * Entry point for the VS Code extension activation.
  * Registers the shelved files view and its command handler.
  */
 export function activate(context) {
-  const tree = new ShelvedFilesTreeDataProvider();
-  const treeView = vscode.window.createTreeView('perforce.shelvedFiles', { treeDataProvider: tree, showCollapseAll: false });
-  const controller = new ShelvedFilesController(tree);
+  const configService = new ConfigService();
+  const reviewUsers = configService.getReviewUsers();
 
-  const cmdFetch = vscode.commands.registerCommand('perforce.shelvedFiles.find', async () => {
-    await controller.promptAndFetch();
+  const shelvedFilesTreeView = new ShelvedFilesTreeView(reviewUsers);
+  const treeView = vscode.window.createTreeView('perforce.shelvedFiles', { treeDataProvider: shelvedFilesTreeView, showCollapseAll: false });
+  const shelvedFilesTreeController = new ShelvedFilesController(shelvedFilesTreeView);
+
+  vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration('perforce')) {
+      const reviewUsers = configService.getReviewUsers();
+      shelvedFilesTreeView.setUsers(reviewUsers);
+    }
   });
+
+  const cmdFetch = vscode.commands.registerCommand('perforce.shelvedFiles.find', shelvedFilesTreeController.promptAndFetch);
 
   /**
    * Command: Open a diff for the selected shelved file in the TreeView.
@@ -31,8 +43,8 @@ export function activate(context) {
 
     try {
       const perforce = new (await import('./services/PerforceService.js')).PerforceService();
-      const treeProvider = tree; // current provider instance
-      const cl = treeProvider.getCl();
+      const treeProvider = shelvedFilesTreeView; // current provider instance
+      const cl = (item && item.cl) ? item.cl : treeProvider.getCl();
       if (!cl) {
         vscode.window.showErrorMessage('No changelist loaded in the Shelved Files view.');
         return;
