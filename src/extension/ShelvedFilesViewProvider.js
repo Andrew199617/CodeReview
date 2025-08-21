@@ -34,7 +34,6 @@ export class ShelvedFilesViewProvider {
 
     try {
       webview.postMessage({ type: 'status', message: `Querying p4 for CL ${cl} (shelved)...` });
-      await this.perforce.ensureAvailable();
       const out = await this.perforce.getDescribeSummaryOutput(cl, true);
 
       const files = [];

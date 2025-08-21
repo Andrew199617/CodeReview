@@ -47,7 +47,6 @@ async function main()
   // Dry-run shortcut: reuse runner’s extract and perforce calls
   if (opts.dryRun) 
   {
-    await perforce.ensureAvailable();
     const strDescribe = await perforce.getDescribeOutput(nCl, !!opts.shelved);
     const arrFiles = runner.parseDepotFilesFromDescribe(strDescribe);
     console.log(`Changelist ${nCl} files:`);

@@ -1,7 +1,7 @@
 import dotenv from 'dotenv';
 import * as vscode from 'vscode';
 import { ShelvedFilesController } from './extension/ShelvedFilesController.js';
-import { ShelvedFilesTreeView } from './extension/ShelvedFilesTreeDataProvider.js';
+import { ShelvedFilesTreeDataProvider } from './extension/ShelvedFilesTreeDataProvider.js';
 import { ConfigService } from './services/ConfigService.js';
 
 dotenv.config();
@@ -14,7 +14,7 @@ export function activate(context) {
   const configService = new ConfigService();
   const reviewUsers = configService.getReviewUsers();
 
-  const shelvedFilesTreeView = new ShelvedFilesTreeView(reviewUsers);
+  const shelvedFilesTreeView = new ShelvedFilesTreeDataProvider(reviewUsers);
   const treeView = vscode.window.createTreeView('perforce.shelvedFiles', { treeDataProvider: shelvedFilesTreeView, showCollapseAll: false });
   const shelvedFilesTreeController = new ShelvedFilesController(shelvedFilesTreeView);
 
@@ -56,7 +56,6 @@ export function activate(context) {
       const fromRev = rev > 1 ? (rev - 1) : 0;
 
       // Fetch contents for both revisions
-      await perforce.ensureAvailable();
       let leftContent = '';
       if (fromRev > 0) {
         leftContent = await perforce.getFileContentAtRevision(strFile, fromRev);

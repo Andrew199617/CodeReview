@@ -9,7 +9,6 @@ export class CodeReviewRunner {
 
   // --- Describe and file discovery ---
   async getDescribe(cl, shelved = false) {
-    await this.perforce.ensureAvailable();
     return await this.perforce.getDescribeOutput(cl, shelved);
   }
 

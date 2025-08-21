@@ -189,7 +189,8 @@ export class ShelvedFilesTreeDataProvider
     let arrFiles = this._clFilesMap.get(changelist);
 
     if (!arrFiles) {
-      this._clFilesMap.set(changelist, await this._fetchShelvedFiles(changelist));
+      arrFiles = await this._fetchShelvedFiles(changelist);
+      this._clFilesMap.set(changelist, arrFiles);
     }
 
     if (!arrFiles || arrFiles.length === 0) {
@@ -245,8 +246,6 @@ export class ShelvedFilesTreeDataProvider
    */
   async _fetchUserChangelists(user) {
     try {
-      await this._perforce.ensureAvailable();
-
       const arrCls = await this._perforce.getPendingChangelistsForUser(user);
       return arrCls;
     }
@@ -263,8 +262,6 @@ export class ShelvedFilesTreeDataProvider
    */
   async _fetchShelvedFiles(cl) {
     try {
-      await this._perforce.ensureAvailable();
-
       const arrFiles = await this._perforce.getShelvedFilesFromChangelist(cl);
       return arrFiles;
     }

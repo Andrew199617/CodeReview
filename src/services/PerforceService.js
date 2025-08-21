@@ -15,13 +15,17 @@ export class PerforceService {
   }
 
   /** Ensures `p4` is available by executing `p4 -V`. */
-  async ensureAvailable() {
+  async _ensureAvailable() {
     const p4Available = await this.run('p4', ['-V']);
     return p4Available.includes('Perforce - The Fast Software Configuration Management System');
   } 
 
   /** Returns a list of depot files from `p4 describe -s <cl>`. */
   async getChangelistFiles(nCl) {
+    if (!await this._ensureAvailable()) {
+      return [];
+    }
+
     const strOut = await this.run('p4', ['describe', '-s', String(nCl)]);
     const arrLines = strOut.split(/\r?\n/);
     const arrFiles = [];
@@ -52,6 +56,10 @@ export class PerforceService {
 
   /** Returns full `p4 describe -du [-S] <cl>` output for diffs. */
   async getDescribeOutput(nCl, bShelved) {
+    if (!await this._ensureAvailable()) {
+      return '';
+    }
+
     const arrArgs = ['describe', '-du'];
     if (bShelved) {
       arrArgs.push('-S');
@@ -63,6 +71,10 @@ export class PerforceService {
 
   /** Returns summary `p4 describe -s [-S] <cl>` output for parsing files and revs. */
   async getDescribeSummaryOutput(nCl, bShelved = false) {
+    if (!await this._ensureAvailable()) {
+      return '';
+    }
+
     const arrArgs = ['describe', '-s'];
     if (bShelved) {
       arrArgs.push('-S');
@@ -77,7 +89,7 @@ export class PerforceService {
    * Internally runs `p4 describe -s -S` and parses the result.
    */
   async getShelvedFilesFromChangelist(nCl) {
-    if (!await this.ensureAvailable()) {
+    if (!await this._ensureAvailable()) {
       return [];
     }
 
@@ -125,7 +137,7 @@ export class PerforceService {
 
   /** Returns a list of shelved changelist numbers for the given user. */
   async getPendingChangelistsForUser(strUser) {
-    if (!await this.ensureAvailable()) {
+    if (!await this._ensureAvailable()) {
       return [];
     }
 
