@@ -9,6 +9,19 @@ export class ShelvedFilesController {
   constructor(tree) {
     this.tree = tree;
     this.perforce = new PerforceService();
+
+    vscode.workspace.onDidChangeConfiguration(this.onConfigChange.bind(this));
+  }
+
+  /**
+   * Handles configuration changes.
+   * @param {vscode.ConfigurationChangeEvent} event - The configuration change event.
+   */
+  onConfigChange(event) {
+    if (event.affectsConfiguration('perforce')) {
+      const reviewUsers = configService.getReviewUsers();
+      this.tree.setUsers(reviewUsers);
+    }
   }
 
   /**

@@ -18,13 +18,6 @@ export function activate(context) {
   const treeView = vscode.window.createTreeView('perforce.shelvedFiles', { treeDataProvider: shelvedFilesTreeView, showCollapseAll: false });
   const shelvedFilesTreeController = new ShelvedFilesController(shelvedFilesTreeView);
 
-  vscode.workspace.onDidChangeConfiguration((event) => {
-    if (event.affectsConfiguration('perforce')) {
-      const reviewUsers = configService.getReviewUsers();
-      shelvedFilesTreeView.setUsers(reviewUsers);
-    }
-  });
-
   const cmdFetch = vscode.commands.registerCommand('perforce.shelvedFiles.find', shelvedFilesTreeController.promptAndFetch);
 
   /**
