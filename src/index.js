@@ -1,13 +1,10 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { AIReviewer } from './CodeReview/AIReviewer.js';
 import { CodeReviewRunner } from './CodeReview/CodeReviewRunner.js';
 import { PerforceService } from './services/PerforceService.js';
-
-dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

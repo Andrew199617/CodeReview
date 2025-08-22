@@ -1,16 +1,13 @@
-import dotenv from 'dotenv';
 import * as vscode from 'vscode';
 import { ShelvedFilesController } from './extension/ShelvedFilesController.js';
 import { ShelvedFilesTreeDataProvider } from './extension/ShelvedFilesTreeDataProvider.js';
 import { ConfigService } from './services/ConfigService.js';
 
-dotenv.config();
-
 /**
  * Entry point for the VS Code extension activation.
  * Registers the shelved files view and its command handler.
  */
-export function activate(context) {
+export async function activate(context) {
   const configService = new ConfigService();
   const reviewUsers = configService.getReviewUsers();
 
@@ -90,15 +87,13 @@ export function activate(context) {
     }
   });
 
-  // Enable double-click/selection context menu by wiring view selection to command
-  treeView.onDidChangeSelection(e => {
-    const sel = e.selection && e.selection[0];
-    if (sel && sel.contextValue === 'shelvedFile') {
-      // Add a context command to the tree item via the command palette
-      // We won't automatically open the diff on selection, but register the command to be run from the context menu.
-    }
-  });
+  // Ensure OpenAI configuration is set before activating commands
+  const configured = await configService.ensureOpenAIConfig();
+  if (!configured) {
+    return;
+  }
 
+  // Register commands and activate features here
   context.subscriptions.push(treeView, cmdFetch, cmdDiffSelected);
 }
 

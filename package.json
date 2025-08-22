@@ -20,9 +20,23 @@
       "properties": {
         "perforce.reviewUsers": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "markdownDescription": "List of Perforce usernames whose shelved changelists should appear in the Shelved Files view.",
+          "scope": "application"
+        },
+        "perforce.openAI.apiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "OpenAI API key used for AI features (stored in user settings).",
+          "scope": "application"
+        },
+        "perforce.openAI.model": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "OpenAI model to use for AI features (e.g., gpt-5.0-mini-2025).",
           "scope": "application"
         }
       }
@@ -49,8 +63,7 @@
       {
         "command": "perforce.shelvedFiles.find",
         "title": "Find Shelved by CL"
-      }
-      ,
+      },
       {
         "command": "perforce.shelvedFiles.diffSelected",
         "title": "Diff Shelved File"
@@ -63,8 +76,7 @@
           "when": "view == perforce.shelvedFiles",
           "group": "navigation@1"
         }
-      ]
-      ,
+      ],
       "view/item/context": [
         {
           "command": "perforce.shelvedFiles.diffSelected",
@@ -83,7 +95,6 @@
   },
   "dependencies": {
     "commander": "^12.1.0",
-    "dotenv": "^16.4.5",
     "execa": "^9.3.0",
     "openai": "^4.58.2"
   }
