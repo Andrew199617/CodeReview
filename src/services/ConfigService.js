@@ -11,8 +11,9 @@ export class ConfigService {
    * @returns {Object} A shallow copy of the review options object or empty object.
    */
   getOptions() {
-    const config = vscode.workspace.getConfiguration('perforce');
-    const optionsConfig = { reviewUsers: config.get('reviewUsers') };
+    const config = vscode.workspace.getConfiguration();
+    const reviewUsers = config.get('lgd.options.reviewUsers') || config.get('perforce.reviewUsers');
+    const optionsConfig = { reviewUsers };
     return optionsConfig && typeof optionsConfig === 'object' ? optionsConfig : {};
   }
 
@@ -39,11 +40,10 @@ export class ConfigService {
    * @returns {string | undefined} The OpenAI API key if set.
    */
   getOpenAIKey() {
-    const config = vscode.workspace.getConfiguration('perforce');
-    // Prefer explicit nested key, fall back to openAI object or top-level value
-    const nested = config.get('openAI.apiKey');
+    const config = vscode.workspace.getConfiguration();
+    const nested = config.get('lgd.options.openAI.apiKey') || config.get('perforce.openAI.apiKey');
     if (nested) return nested;
-    const openAI = config.get('openAI');
+    const openAI = config.get('lgd.options.openAI') || config.get('perforce.openAI');
     if (openAI && typeof openAI === 'string') return openAI;
     if (openAI && typeof openAI === 'object' && openAI.apiKey) return openAI.apiKey;
     return undefined;
@@ -56,12 +56,12 @@ export class ConfigService {
    */
   async setOpenAIKey(apiKey) {
     try {
-      const config = vscode.workspace.getConfiguration('perforce');
-      await config.update('openAI.apiKey', apiKey, vscode.ConfigurationTarget.Global);
+      const config = vscode.workspace.getConfiguration();
+      await config.update('lgd.options.openAI.apiKey', apiKey, vscode.ConfigurationTarget.Global);
 
-      const existing = config.get('openAI');
+      const existing = config.get('lgd.options.openAI');
       if (!existing || typeof existing !== 'object') {
-        await config.update('openAI', { apiKey }, vscode.ConfigurationTarget.Global);
+        await config.update('lgd.options.openAI', { apiKey }, vscode.ConfigurationTarget.Global);
       }
 
       vscode.window.showInformationMessage('OpenAI API Key saved to settings.');
@@ -78,12 +78,59 @@ export class ConfigService {
    * @returns {string | undefined} The OpenAI model if set.
    */
   getOpenAIModel() {
-    const config = vscode.workspace.getConfiguration('perforce');
-    const nested = config.get('openAI.model');
+    const config = vscode.workspace.getConfiguration();
+    const nested = config.get('lgd.options.openAI.model') || config.get('perforce.openAI.model');
     if (nested) return nested;
-    const openAI = config.get('openAI');
+    const openAI = config.get('lgd.options.openAI') || config.get('perforce.openAI');
     if (openAI && typeof openAI === 'object' && openAI.model) return openAI.model;
     return undefined;
+  }
+
+  getPerforceConnection() {
+    return {
+      port: this.getPerforcePort(),
+      user: this.getPerforceUser(),
+      client: this.getPerforceClient()
+    }
+  }
+
+  /** @returns {string|undefined} Perforce client/workspace (P4CLIENT) */
+  getPerforceClient() {
+    const config = vscode.workspace.getConfiguration();
+    const client = config.get('lgd.options.perforceClient') || config.get('perforce.client');
+    return (typeof client === 'string' && client.trim()) ? client.trim() : undefined;
+  }
+
+  /** @returns {string|undefined} Perforce user (P4USER) */
+  getPerforceUser() {
+    const config = vscode.workspace.getConfiguration();
+    const user = config.get('lgd.options.perforceUser') || config.get('perforce.user');
+    return (typeof user === 'string' && user.trim()) ? user.trim() : undefined;
+  }
+
+  /** @returns {string|undefined} Perforce server:port (P4PORT) */
+  getPerforcePort() {
+    const config = vscode.workspace.getConfiguration();
+    const port = config.get('lgd.options.perforcePort') || config.get('perforce.port');
+    return (typeof port === 'string' && port.trim()) ? port.trim() : undefined;
+  }
+
+  /** Persist Perforce client */
+  async setPerforceClient(client) {
+    const config = vscode.workspace.getConfiguration();
+    await config.update('lgd.options.perforceClient', client, vscode.ConfigurationTarget.Workspace);
+  }
+
+  /** Persist Perforce user */
+  async setPerforceUser(user) {
+    const config = vscode.workspace.getConfiguration();
+    await config.update('lgd.options.perforceUser', user, vscode.ConfigurationTarget.Workspace);
+  }
+
+  /** Persist Perforce port */
+  async setPerforcePort(port) {
+    const config = vscode.workspace.getConfiguration();
+    await config.update('lgd.options.perforcePort', port, vscode.ConfigurationTarget.Workspace);
   }
 
   /**
@@ -93,12 +140,12 @@ export class ConfigService {
    */
   async setOpenAIModel(model) {
     try {
-      const config = vscode.workspace.getConfiguration('perforce');
-      await config.update('openAI.model', model, vscode.ConfigurationTarget.Global);
+      const config = vscode.workspace.getConfiguration();
+      await config.update('lgd.options.openAI.model', model, vscode.ConfigurationTarget.Global);
 
-      const existing = config.get('openAI');
+      const existing = config.get('lgd.options.openAI');
       if (!existing || typeof existing !== 'object') {
-        await config.update('openAI', { model }, vscode.ConfigurationTarget.Global);
+        await config.update('lgd.options.openAI', { model }, vscode.ConfigurationTarget.Global);
       }
 
       vscode.window.showInformationMessage('OpenAI model saved to settings.');
@@ -122,10 +169,12 @@ export class ConfigService {
         ignoreFocusOut: true,
         password: true
       });
+
       if (apiKey) {
         const ok = await this.setOpenAIKey(apiKey);
         if (!ok) return false;
-      } else {
+      } 
+      else {
         vscode.window.showErrorMessage('OpenAI API Key is required for AI commands.');
         return false;
       }
@@ -137,10 +186,12 @@ export class ConfigService {
         prompt: 'Enter the OpenAI Model to use (e.g., gpt-4)',
         ignoreFocusOut: true
       });
+
       if (model) {
         const ok = await this.setOpenAIModel(model);
         if (!ok) return false;
-      } else {
+      } 
+      else {
         vscode.window.showErrorMessage('OpenAI Model is required for AI commands.');
         return false;
       }

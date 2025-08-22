@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ShelvedFilesController } from './extension/ShelvedFilesController.js';
 import { ShelvedFilesTreeDataProvider } from './extension/ShelvedFilesTreeDataProvider.js';
 import { ConfigService } from './services/ConfigService.js';
+import { PerforceService } from './services/PerforceService.js';
 
 /**
  * Entry point for the VS Code extension activation.
@@ -11,9 +12,12 @@ export async function activate(context) {
   const configService = new ConfigService();
   const reviewUsers = configService.getReviewUsers();
 
-  const shelvedFilesTreeView = new ShelvedFilesTreeDataProvider(reviewUsers);
+  const perforceConnection = configService.getPerforceConnection();
+  const perforceService = new PerforceService(perforceConnection);
+
+  const shelvedFilesTreeView = new ShelvedFilesTreeDataProvider(reviewUsers, perforceService);
   const treeView = vscode.window.createTreeView('perforce.shelvedFiles', { treeDataProvider: shelvedFilesTreeView, showCollapseAll: false });
-  const shelvedFilesTreeController = new ShelvedFilesController(shelvedFilesTreeView);
+  const shelvedFilesTreeController = new ShelvedFilesController(shelvedFilesTreeView, perforceService, configService);
 
   const cmdFetch = vscode.commands.registerCommand('perforce.shelvedFiles.find', shelvedFilesTreeController.promptAndFetch);
 
@@ -32,8 +36,7 @@ export async function activate(context) {
     }
 
     try {
-      const perforce = new (await import('./services/PerforceService.js')).PerforceService();
-      const treeProvider = shelvedFilesTreeView; // current provider instance
+      const treeProvider = shelvedFilesTreeView;
       const cl = (item && item.cl) ? item.cl : treeProvider.getCl();
       if (!cl) {
         vscode.window.showErrorMessage('No changelist loaded in the Shelved Files view.');
@@ -41,7 +44,7 @@ export async function activate(context) {
       }
 
       // Use describe -s -S to find the revision for this file in the CL
-      const summary = await perforce.getDescribeSummaryOutput(cl, true);
+      const summary = await perforceService.getDescribeSummaryOutput(cl, true);
       const re = new RegExp(`^\\.\\.\\.\\s+(${strFile.replace(/[.*+?^${}()|[\]\\/]/g, r => `\\${r}`)})#(\\d+)\\s+(\\w+)`, 'm');
       const m = summary.match(re);
       if (!m) {
@@ -55,13 +58,13 @@ export async function activate(context) {
       // Fetch contents for both revisions
       let leftContent = '';
       if (fromRev > 0) {
-        leftContent = await perforce.getFileContentAtRevision(strFile, fromRev);
+        leftContent = await perforceService.getFileContentAtRevision(strFile, fromRev);
       } else {
         // If rev==1 and it's an add, compare against empty; for others fall back to empty as well.
         leftContent = '';
       }
 
-      const rightContent = await perforce.getFileContentAtRevision(strFile, rev);
+      const rightContent = await perforceService.getFileContentAtRevision(strFile, rev);
 
       // Normalize EOLs to avoid stray CR characters rendering inline (use LF for both sides)
       const normalize = (s) => (s == null) ? '' : String(s).replace(/\r\n/g, '\n').replace(/\r/g, '\n');

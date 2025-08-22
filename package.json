@@ -16,9 +16,9 @@
   "main": "./src/extension.js",
   "contributes": {
     "configuration": {
-      "title": "Perforce Options",
+      "title": "LGD Options",
       "properties": {
-        "perforce.reviewUsers": {
+        "lgd.options.reviewUsers": {
           "type": "array",
           "items": {
             "type": "string"
@@ -27,23 +27,35 @@
           "markdownDescription": "List of Perforce usernames whose shelved changelists should appear in the Shelved Files view.",
           "scope": "resource"
         },
-        "perforce.openAI.apiKey": {
+        "lgd.options.perforceClient": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Perforce client/workspace (P4CLIENT) used for p4 commands.",
+          "scope": "resource"
+        },
+        "lgd.options.perforceUser": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Perforce user (P4USER) used for p4 commands.",
+          "scope": "resource"
+        },
+        "lgd.options.perforcePort": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Perforce server:port (P4PORT), e.g. perforce:1666.",
+          "scope": "resource"
+        },
+        "lgd.options.openAI.apiKey": {
           "type": "string",
           "default": "",
           "markdownDescription": "OpenAI API key used for AI features (stored in user settings).",
           "scope": "application"
         },
-        "perforce.openAI.model": {
+        "lgd.options.openAI.model": {
           "type": "string",
           "default": "",
           "markdownDescription": "OpenAI model to use for AI features (e.g., gpt-5.0-mini-2025).",
           "scope": "application"
-        },
-        "perforce.client": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "Default Perforce client/workspace name used when executing p4 commands.",
-          "scope": "resource"
         }
       }
     },

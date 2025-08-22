@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import { PerforceService } from '../services/PerforceService.js';
 
 /**
  * Context values for tree items.
@@ -19,7 +18,7 @@ export class ShelvedFilesTreeDataProvider
   /**
    * @param {string[]} reviewUsers The users to shelve files for.
    */
-  constructor(reviewUsers)
+  constructor(reviewUsers, perforceService)
   {
     this._onDidChangeTreeData = new vscode.EventEmitter();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -37,7 +36,7 @@ export class ShelvedFilesTreeDataProvider
     this._userClMap = new Map(); // user -> number[]
     this._clFilesMap = new Map(); // cl -> string[]
 
-    this._perforce = new PerforceService();
+    this._perforce = perforceService;
 
     if (reviewUsers.length > 0) {
       this.setUsers(reviewUsers);

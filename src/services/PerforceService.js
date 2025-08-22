@@ -1,27 +1,28 @@
 import { execa } from 'execa';
-import * as vscode from 'vscode';
 
 /**
  * Thin wrapper around the `p4` CLI used by the tools and the VS Code extension.
  * Provides helpers to check availability, describe changelists, and retrieve diffs.
  */
 export class PerforceService {
-  constructor() {
+  constructor(connection) {
     /** @type {string|undefined} */
-    this._client = undefined;
-    this._loadClientFromConfig();
+    this._client = connection && connection.client ? String(connection.client).trim() : undefined;
+    /** @type {string|undefined} */
+    this._user = connection && connection.user ? String(connection.user).trim() : undefined;
+    /** @type {string|undefined} */
+    this._port = connection && connection.port ? String(connection.port).trim() : undefined;
   }
 
-  /** @description Loads the client setting from VS Code configuration into the member. */
-  _loadClientFromConfig() {
-    try {
-      const config = vscode.workspace.getConfiguration('perforce');
-      const client = config.get('client');
-      if (client && typeof client === 'string' && client.trim().length > 0) {
-        this._client = client.trim();
-      }
+  /** @description Update connection properties (client/user/port) at runtime. */
+  updateConnection(connection) {
+    if (!connection || typeof connection !== 'object') {
+      return;
     }
-    catch (_) { }
+
+    if (connection.client) this.setClient(connection.client);
+    if (connection.user) this.setUser(connection.user);
+    if (connection.port) this.setPort(connection.port);
   }
 
   /**
@@ -40,14 +41,42 @@ export class PerforceService {
     return this._client;
   }
 
+  /** @description Sets Perforce user (P4USER). */
+  setUser(user) {
+    this._user = typeof user === 'string' && user.trim().length > 0 ? user.trim() : undefined;
+  }
+
+  /** @returns {string|undefined} Active Perforce user. */
+  getUser() {
+    return this._user;
+  }
+
+  /** @description Sets Perforce port (P4PORT). */
+  setPort(port) {
+    this._port = typeof port === 'string' && port.trim().length > 0 ? port.trim() : undefined;
+  }
+
+  /** @returns {string|undefined} Active Perforce port. */
+  getPort() {
+    return this._port;
+  }
+
   /**
    * @description Build p4 command arguments including -c <client> if a client is configured.
    * @param {string[]} baseArgs Base p4 subcommand + args.
    * @returns {string[]} Fully constructed args array.
    */
   _buildArgs(baseArgs) {
-    if (this._client) {
-      return ['-c', this._client, ...baseArgs];
+    if (this.SettingIsValid(this._client)) {
+      baseArgs = ['-c', this._client, ...baseArgs];
+    }
+
+    if (this.SettingIsValid(this._user)) {
+      baseArgs = ['-u', this._user, ...baseArgs];
+    }
+
+    if (this.SettingIsValid(this._port)) {
+      baseArgs = ['-p', this._port, ...baseArgs];
     }
 
     return baseArgs.slice();
@@ -59,11 +88,24 @@ export class PerforceService {
     return stdout;
   }
 
+  /**
+   * @description Checks if a setting value is valid (non-empty and not "none").
+   * @param {string} settingValue - The setting value to check.
+   * @returns {boolean} True if the setting is valid, false otherwise.
+   */
+  SettingIsValid(settingValue) {
+    if (typeof settingValue !== 'string') {
+      return false;
+    }
+    const trimmed = settingValue.trim();
+    return trimmed.length > 0 && trimmed.toLowerCase() !== 'none';
+  }
+
   /** Ensures `p4` is available by executing `p4 -V`. */
   async _ensureAvailable() {
-    const p4Available = await this.run('p4', this._buildArgs(['-V']));
+    const p4Available = await this.run('p4', ['-V']);
     return p4Available.includes('Perforce - The Fast Software Configuration Management System');
-  } 
+  }
 
   /** Returns a list of depot files from `p4 describe -s <cl>`. */
   async getChangelistFiles(nCl) {
@@ -185,7 +227,7 @@ export class PerforceService {
       return [];
     }
 
-    const out = await this.run('p4', this._buildArgs(['changes', '-u', String(strUser), '-s', 'shelved']));
+    const out = await this.run('p4', this._buildArgs(['changes', '-u', String(strUser)]));
     const arr = [];
 
     for (const line of String(out || '').split(/\r?\n/)) {

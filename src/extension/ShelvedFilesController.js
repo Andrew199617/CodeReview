@@ -1,15 +1,14 @@
 import * as vscode from 'vscode';
-import { PerforceService } from '../services/PerforceService.js';
 
 /**
  * Coordinates user input and Perforce calls for the Shelved Files view.
  * Prompts for a changelist, fetches shelved files via PerforceService, and updates the tree provider.
  */
 export class ShelvedFilesController {
-  constructor(tree) {
+  constructor(tree, perforceService, configService) {
     this.tree = tree;
-    this.perforce = new PerforceService();
-
+    this.perforce = perforceService;
+    this.configService = configService;
     vscode.workspace.onDidChangeConfiguration(this.onConfigChange.bind(this));
   }
 
@@ -18,9 +17,17 @@ export class ShelvedFilesController {
    * @param {vscode.ConfigurationChangeEvent} event - The configuration change event.
    */
   onConfigChange(event) {
-    if (event.affectsConfiguration('perforce')) {
-      const reviewUsers = configService.getReviewUsers();
-      this.tree.setUsers(reviewUsers);
+    if (event.affectsConfiguration('lgd.options.reviewUsers')) {
+      const reviewUsers = this.configService.getReviewUsers();
+      if (reviewUsers && reviewUsers.length > 0) {
+        this.tree.setUsers(reviewUsers);
+      }
+    }
+    else if (event.affectsConfiguration('lgd.options.perforceClient')
+      || event.affectsConfiguration('lgd.options.perforceUser')
+      || event.affectsConfiguration('lgd.options.perforcePort')) {
+      const conn = this.configService.getPerforceConnection();
+      this.perforce.updateConnection(conn);
     }
   }
 
