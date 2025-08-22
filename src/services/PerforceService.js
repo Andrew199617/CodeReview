@@ -1,10 +1,16 @@
 import { execa } from 'execa';
 
 /**
- * Thin wrapper around the `p4` CLI used by the tools and the VS Code extension.
- * Provides helpers to check availability, describe changelists, and retrieve diffs.
+ * @description Thin wrapper around the Perforce `p4` CLI used by the tools and the VS Code extension. Provides helpers to check availability, describe changelists, and retrieve diffs.
  */
 export class PerforceService {
+  /**
+   * @description Creates a new PerforceService instance with optional initial connection settings.
+   * @param {Object} [connection] Optional connection object containing client, user, and port.
+   * @param {string} [connection.client] Perforce client (workspace) name.
+   * @param {string} [connection.user] Perforce user (P4USER).
+   * @param {string} [connection.port] Perforce port (P4PORT).
+   */
   constructor(connection) {
     /** @type {string|undefined} */
     this._client = connection && connection.client ? String(connection.client).trim() : undefined;
@@ -14,7 +20,14 @@ export class PerforceService {
     this._port = connection && connection.port ? String(connection.port).trim() : undefined;
   }
 
-  /** @description Update connection properties (client/user/port) at runtime. */
+  /**
+   * @description Updates connection properties (client, user, port) at runtime if provided.
+   * @param {Object} connection Connection object that may contain client, user, and/or port.
+   * @param {string} [connection.client] Perforce client.
+   * @param {string} [connection.user] Perforce user.
+   * @param {string} [connection.port] Perforce port.
+   * @returns {void}
+   */
   updateConnection(connection) {
     if (!connection || typeof connection !== 'object') {
       return;
@@ -67,36 +80,42 @@ export class PerforceService {
    * @returns {string[]} Fully constructed args array.
    */
   _buildArgs(baseArgs) {
-    if (this.SettingIsValid(this._client)) {
+    if (this.settingIsValid(this._client)) {
       baseArgs = ['-c', this._client, ...baseArgs];
     }
 
-    if (this.SettingIsValid(this._user)) {
+    if (this.settingIsValid(this._user)) {
       baseArgs = ['-u', this._user, ...baseArgs];
     }
 
-    if (this.SettingIsValid(this._port)) {
+    if (this.settingIsValid(this._port)) {
       baseArgs = ['-p', this._port, ...baseArgs];
     }
 
     return baseArgs.slice();
   }
 
-  /** Runs a command and returns stdout. Throws on non-zero exit. */
+  /**
+   * @description Executes a command and returns stdout. Throws on non-zero exit code.
+   * @param {string} strCmd Executable to run.
+   * @param {string[]} arrArgs Arguments to pass to the executable.
+   * @returns {Promise<string>} Resolves with stdout text.
+   */
   async run(strCmd, arrArgs) {
     const { stdout } = await execa(strCmd, arrArgs);
     return stdout;
   }
 
   /**
-   * @description Checks if a setting value is valid (non-empty and not "none").
-   * @param {string} settingValue - The setting value to check.
-   * @returns {boolean} True if the setting is valid, false otherwise.
+   * @description Checks if a setting value is valid (non-empty and not the string "none").
+   * @param {string|undefined} settingValue Value to validate.
+   * @returns {boolean} True if valid, otherwise false.
    */
-  SettingIsValid(settingValue) {
+  settingIsValid(settingValue) {
     if (typeof settingValue !== 'string') {
       return false;
     }
+
     const trimmed = settingValue.trim();
     return trimmed.length > 0 && trimmed.toLowerCase() !== 'none';
   }
@@ -108,12 +127,12 @@ export class PerforceService {
   }
 
   /** Returns a list of depot files from `p4 describe -s <cl>`. */
-  async getChangelistFiles(nCl) {
+  async getChangelistFiles(changelistNumber) {
     if (!await this._ensureAvailable()) {
       return [];
     }
 
-    const strOut = await this.run('p4', this._buildArgs(['describe', '-s', String(nCl)]));
+    const strOut = await this.run('p4', this._buildArgs(['describe', '-s', String(changelistNumber)]));
     const arrLines = strOut.split(/\r?\n/);
     const arrFiles = [];
     let bInFiles = false;
@@ -132,17 +151,17 @@ export class PerforceService {
         break;
       }
 
-      const m = strLine.match(/^\.\.\.\s+([^#\s]+)#\d+\s+\w+/);
-      if (m) {
-        arrFiles.push(this.sanitizeDepotPath(m[1]));
+      const match = strLine.match(/^\.\.\.\s+([^#\s]+)#\d+\s+\w+/);
+      if (match) {
+        arrFiles.push(this.sanitizeDepotPath(match[1]));
       }
-
     }
+
     return arrFiles;
   }
 
   /** Returns full `p4 describe -du [-S] <cl>` output for diffs. */
-  async getDescribeOutput(nCl, bShelved) {
+  async getDescribeOutput(changelistNumber, bShelved) {
     if (!await this._ensureAvailable()) {
       return '';
     }
@@ -152,12 +171,12 @@ export class PerforceService {
       arrArgs.push('-S');
     }
 
-    arrArgs.push(String(nCl));
+    arrArgs.push(String(changelistNumber));
     return await this.run('p4', this._buildArgs(arrArgs));
   }
 
   /** Returns summary `p4 describe -s [-S] <cl>` output for parsing files and revs. */
-  async getDescribeSummaryOutput(nCl, bShelved = false) {
+  async getDescribeSummaryOutput(changelistNumber, bShelved = false) {
     if (!await this._ensureAvailable()) {
       return '';
     }
@@ -167,7 +186,7 @@ export class PerforceService {
       arrArgs.push('-S');
     }
 
-    arrArgs.push(String(nCl));
+    arrArgs.push(String(changelistNumber));
     return await this.run('p4', this._buildArgs(arrArgs));
   }
 
@@ -175,12 +194,12 @@ export class PerforceService {
    * Returns a unique list of depot file paths for shelved files in the changelist.
    * Internally runs `p4 describe -s -S` and parses the result.
    */
-  async getShelvedFilesFromChangelist(nCl) {
+  async getShelvedFilesFromChangelist(changelistNumber) {
     if (!await this._ensureAvailable()) {
       return [];
     }
 
-    const strOut = await this.getDescribeSummaryOutput(nCl, true);
+    const strOut = await this.getDescribeSummaryOutput(changelistNumber, true);
     const arrFiles = [];
     const setSeen = new Set();
     const re = /^\.\.\.\s+(\/\/\S+?)#(\d+)\s+(\w+)/;
@@ -195,6 +214,7 @@ export class PerforceService {
         }
       }
     }
+
     return arrFiles;
   }
 
@@ -217,6 +237,11 @@ export class PerforceService {
   }
 
   /** Normalizes/sanitizes depot paths if needed. Currently a passthrough. */
+  /**
+   * @description Normalizes or sanitizes depot paths. Currently passthrough for potential future logic.
+   * @param {string} strPath Raw depot path.
+   * @returns {string} Sanitized depot path.
+   */
   sanitizeDepotPath(strPath) {
     return strPath;
   }
@@ -231,7 +256,6 @@ export class PerforceService {
     const arr = [];
 
     for (const line of String(out || '').split(/\r?\n/)) {
-      // Example: Change 123456 by user@client on 2025/08/20 'desc'
       const matches = line.match(/^Change\s+(\d+)\b/);
       if (matches) {
         arr.push(Number(matches[1]));
