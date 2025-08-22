@@ -1,4 +1,5 @@
 import { execa } from 'execa';
+import * as vscode from 'vscode';
 
 /**
  * Thin wrapper around the `p4` CLI used by the tools and the VS Code extension.
@@ -6,6 +7,50 @@ import { execa } from 'execa';
  */
 export class PerforceService {
   constructor() {
+    /** @type {string|undefined} */
+    this._client = undefined;
+    this._loadClientFromConfig();
+  }
+
+  /** @description Loads the client setting from VS Code configuration into the member. */
+  _loadClientFromConfig() {
+    try {
+      const config = vscode.workspace.getConfiguration('perforce');
+      const client = config.get('client');
+      if (client && typeof client === 'string' && client.trim().length > 0) {
+        this._client = client.trim();
+      }
+    }
+    catch (_) { }
+  }
+
+  /**
+   * @description Sets the Perforce client to use for subsequent commands.
+   * @param {string} client The client/workspace name.
+   */
+  setClient(client) {
+    this._client = typeof client === 'string' && client.trim().length > 0 ? client.trim() : undefined;
+  }
+
+  /**
+   * @description Returns the active Perforce client value (may be undefined).
+   * @returns {string|undefined}
+   */
+  getClient() {
+    return this._client;
+  }
+
+  /**
+   * @description Build p4 command arguments including -c <client> if a client is configured.
+   * @param {string[]} baseArgs Base p4 subcommand + args.
+   * @returns {string[]} Fully constructed args array.
+   */
+  _buildArgs(baseArgs) {
+    if (this._client) {
+      return ['-c', this._client, ...baseArgs];
+    }
+
+    return baseArgs.slice();
   }
 
   /** Runs a command and returns stdout. Throws on non-zero exit. */
@@ -16,7 +61,7 @@ export class PerforceService {
 
   /** Ensures `p4` is available by executing `p4 -V`. */
   async _ensureAvailable() {
-    const p4Available = await this.run('p4', ['-V']);
+    const p4Available = await this.run('p4', this._buildArgs(['-V']));
     return p4Available.includes('Perforce - The Fast Software Configuration Management System');
   } 
 
@@ -26,7 +71,7 @@ export class PerforceService {
       return [];
     }
 
-    const strOut = await this.run('p4', ['describe', '-s', String(nCl)]);
+    const strOut = await this.run('p4', this._buildArgs(['describe', '-s', String(nCl)]));
     const arrLines = strOut.split(/\r?\n/);
     const arrFiles = [];
     let bInFiles = false;
@@ -66,7 +111,7 @@ export class PerforceService {
     }
 
     arrArgs.push(String(nCl));
-    return await this.run('p4', arrArgs);;
+    return await this.run('p4', this._buildArgs(arrArgs));
   }
 
   /** Returns summary `p4 describe -s [-S] <cl>` output for parsing files and revs. */
@@ -81,7 +126,7 @@ export class PerforceService {
     }
 
     arrArgs.push(String(nCl));
-    return await this.run('p4', arrArgs);;
+    return await this.run('p4', this._buildArgs(arrArgs));
   }
 
   /**
@@ -113,10 +158,9 @@ export class PerforceService {
 
   /** Returns unified diff between two revisions via `p4 diff2 -du`. */
   async getUnifiedDiffBetweenRevs(strDepotFile, nFromRev, nToRev) {
-    // Use unified diff (-du) for easier prompting
     const lhs = `${strDepotFile}#${nFromRev}`;
     const rhs = `${strDepotFile}#${nToRev}`;
-    const out = await this.run('p4', ['diff2', '-du', lhs, rhs]);
+    const out = await this.run('p4', this._buildArgs(['diff2', '-du', lhs, rhs]));
     return out;
   }
 
@@ -126,7 +170,7 @@ export class PerforceService {
    */
   async getFileContentAtRevision(strDepotFile, nRev) {
     const target = `${strDepotFile}#${nRev}`;
-    const out = await this.run('p4', ['print', '-q', target]);
+    const out = await this.run('p4', this._buildArgs(['print', '-q', target]));
     return out;
   }
 
@@ -141,8 +185,7 @@ export class PerforceService {
       return [];
     }
 
-    // Use 'changes' (alias of 'changelists') and filter by shelved status
-    const out = await this.run('p4', ['changes', '-u', String(strUser), '-s', 'shelved']);
+    const out = await this.run('p4', this._buildArgs(['changes', '-u', String(strUser), '-s', 'shelved']));
     const arr = [];
 
     for (const line of String(out || '').split(/\r?\n/)) {
