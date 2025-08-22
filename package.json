@@ -25,7 +25,7 @@
           },
           "default": [],
           "markdownDescription": "List of Perforce usernames whose shelved changelists should appear in the Shelved Files view.",
-          "scope": "application"
+          "scope": "resource"
         },
         "perforce.openAI.apiKey": {
           "type": "string",
