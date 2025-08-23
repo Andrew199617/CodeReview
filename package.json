@@ -85,6 +85,11 @@
       {
         "command": "perforce.shelvedFiles.diffSelected",
         "title": "Diff Shelved File"
+      },
+      {
+        "command": "perforce.shelvedFiles.refreshChangelist",
+        "title": "Refresh Changelist Files",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -100,6 +105,11 @@
           "command": "perforce.shelvedFiles.diffSelected",
           "when": "view == perforce.shelvedFiles && viewItem == shelvedFile",
           "group": "inline"
+        },
+        {
+          "command": "perforce.shelvedFiles.refreshChangelist",
+          "when": "view == perforce.shelvedFiles && viewItem == changelist",
+          "group": "inline@2"
         }
       ]
     }

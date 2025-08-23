@@ -359,6 +359,35 @@ constructor(reviewUsers, perforceService) {
 }
 ```
 
+Bad because the function passed as a paramater is really too big. Its better to break out a function/lambda from the paramater. Bad because no space between if statement ending brace and await vscode:
+```
+registerCommand('perforce.shelvedFiles.refreshChangelist', async (item) => {
+  if (!item || typeof item.cl !== 'number') {
+    return;
+  }
+  await vscode.window.withProgress({ location: { viewId: 'perforce.shelvedFiles' }, cancellable: false, title: `Refreshing CL ${item.cl}` }, async () => {
+    await shelvedFilesTreeView.reloadChangelist(item.cl, item.user);
+  });
+});
+```
+Good because the function is now clearly defined and easier to read. We always put a new line break after every closing brace of a function and if statement. We put the paramaters correctly on their own line since there were more than 3 parameters and a function.
+```
+async function refreshChangelist(item) {
+  if (!item || typeof item.cl !== 'number') {
+    return;
+  }
+
+  await vscode.window.withProgress(
+    {
+      location: { viewId: 'perforce.shelvedFiles' },
+      cancellable: false,
+      title: `Refreshing CL ${item.cl}`
+    },
+    async () => { await shelvedFilesTreeView.reloadChangelist(item.cl, item.user); }
+  );
+
+registerCommand('perforce.shelvedFiles.refreshChangelist', refreshChangelist);
+```
 
 Do not create variables that are shorter than 3 characters. Exception is `i` for loop counters and `x` + `y` for coordinates. Prefer meaningful names.
 this._files.map((f) => f.path) // bad

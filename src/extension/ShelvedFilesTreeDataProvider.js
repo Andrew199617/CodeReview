@@ -92,6 +92,29 @@ export class ShelvedFilesTreeDataProvider {
   }
 
   /**
+   * @description Clears cached files for a changelist so that they are re-fetched next access.
+   * @param {number} changelistNumber Changelist to clear.
+   */
+  clearChangelistFiles(changelistNumber) {
+    const info = this._clInfoMap.get(changelistNumber);
+    if (info && info.files) {
+      delete info.files;
+    }
+  }
+
+  /**
+   * @description Force reload of a changelist's files and refresh the tree.
+   * @param {number} changelistNumber Changelist number.
+   * @param {string|undefined} user Optional user (optimizes batch load).
+   * @returns {Promise<void>}
+   */
+  async reloadChangelist(changelistNumber, user) {
+    this.clearChangelistFiles(changelistNumber);
+    await this._ensureChangelistFilesLoaded(changelistNumber, user);
+    this.refresh();
+  }
+
+  /**
    * Returns child items for the given element.
    * - Root: Users or legacy flat file list depending on mode.
    * - User: Shelved changelists for that user.
@@ -218,10 +241,8 @@ export class ShelvedFilesTreeDataProvider {
    */
   async _getChangelistsChildren(element) {
     const changelist = element.cl;
-    let info = this._clInfoMap.get(changelist);
-
     await this._ensureChangelistFilesLoaded(changelist, element.user);
-
+    const info = this._clInfoMap.get(changelist);
     if (!info || !info.files || info.files.length === 0) {
       return [this._createInfoItem(`No shelved files in CL ${changelist}`)];
     }
@@ -241,7 +262,7 @@ export class ShelvedFilesTreeDataProvider {
     }
 
     if (user) {
-      await this._LoadAllFilesForUser(user);
+      await this._loadAllFilesForUser(user);
       if (this._hasFilesLoaded(changelistNumber)) {
         return;
       }
@@ -265,7 +286,7 @@ export class ShelvedFilesTreeDataProvider {
    * @param {string} user User to batch load for.
    * @returns {Promise<void>}
    */
-  async _LoadAllFilesForUser(user) {
+  async _loadAllFilesForUser(user) {
     const changelistNumbers = this._userClMap.get(user);
     if (!Array.isArray(changelistNumbers) || changelistNumbers.length === 0) {
       return;
@@ -322,10 +343,9 @@ export class ShelvedFilesTreeDataProvider {
    */
   async _loadFilesForSingleChangelist(changelistNumber) {
     const info = this._clInfoMap.get(changelistNumber);
-    if (!info || !info.files) {
+    if (!info || info.files) {
       return;
     }
-
     try {
       if (info.submitState === SubmitStates.PENDING) {
         info.files = await this._perforce.getShelvedFilesFromChangelist(changelistNumber);
