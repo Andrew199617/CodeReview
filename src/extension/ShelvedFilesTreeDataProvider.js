@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { ChangeListInfo, SubmitStates } from '../services/ChangeListInfo.js';
 
 /**
  * Context values for tree items.
@@ -13,13 +14,12 @@ const ContextValue = {
  * Provides a simple list of shelved files for a changelist as a native TreeView.
  * Call setResults(cl, files) to update the view after fetching data.
  */
-export class ShelvedFilesTreeDataProvider
-{
+export class ShelvedFilesTreeDataProvider {
   /**
    * @param {string[]} reviewUsers The users to shelve files for.
+   * @param {PerforceService} perforceService The Perforce service instance to use for fetching data.
    */
-  constructor(reviewUsers, perforceService)
-  {
+  constructor(reviewUsers, perforceService) {
     this._onDidChangeTreeData = new vscode.EventEmitter();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
 
@@ -33,8 +33,20 @@ export class ShelvedFilesTreeDataProvider
 
     // Users/changelists/files state
     this._users = [];
-    this._userClMap = new Map(); // user -> number[]
-    this._clFilesMap = new Map(); // cl -> string[]
+
+    /**
+     * @description Map of user -> changelist numbers.
+     * @type {Map<string, number[]>}
+     */
+    this._userClMap = new Map();
+
+    /**
+     * @description Map of changelist number -> info object.
+     * { description: string, files?: string[] }
+     * Files are populated lazily on expansion of a changelist node to avoid extra p4 calls.
+     * @type {Map<number, ChangeListInfo>}
+     */
+    this._clInfoMap = new Map();
 
     this._perforce = perforceService;
 
@@ -46,8 +58,7 @@ export class ShelvedFilesTreeDataProvider
   /**
    * Replaces the current CL and files and refreshes the view.
    */
-  setResults(cl, files)
-  {
+  setResults(cl, files) {
     this._mode = 'cl';
     this._cl = cl;
     this._files = Array.isArray(files) ? files.slice() : [];
@@ -59,27 +70,24 @@ export class ShelvedFilesTreeDataProvider
     this._mode = ContextValue.USERS;
     this._users = Array.isArray(arrUsers) ? arrUsers.filter((u) => !!u).map((u) => String(u).trim()).filter((u) => u.length > 0) : [];
     this._userClMap.clear();
-    this._clFilesMap.clear();
+    this._clInfoMap.clear();
     this._cl = undefined;
     this._files = [];
     this._onDidChangeTreeData.fire();
   }
 
   /** Returns the current changelist number (or undefined). */
-  getCl()
-  {
+  getCl() {
     return this._cl;
   }
 
   /** Returns a shallow copy of the current file list. */
-  getFiles()
-  {
+  getFiles() {
     return this._files.slice();
   }
 
   /** Forces a refresh of the view without changing the data. */
-  refresh()
-  {
+  refresh() {
     this._onDidChangeTreeData.fire();
   }
 
@@ -91,8 +99,7 @@ export class ShelvedFilesTreeDataProvider
    * @param {vscode.TreeItem | undefined} element The parent element or undefined for root.
    * @returns {Promise<vscode.TreeItem[]>} Child items.
    */
-  async getChildren(element)
-  {
+  async getChildren(element) {
     if (!element) {
       if (this._mode === ContextValue.CHOSEN) {
         return await this._getChosenCLChildren();
@@ -117,8 +124,7 @@ export class ShelvedFilesTreeDataProvider
    * @returns {Promise<vscode.TreeItem[]>}
    */
   async _getChosenCLChildren() {
-    if (!this._files || this._files.length === 0)
-    {
+    if (!this._files || this._files.length === 0) {
       const label = this._cl ? `No files for CL ${this._cl}` : 'Enter a CL to list shelved files';
       return [this._createInfoItem(label)];
     }
@@ -153,23 +159,50 @@ export class ShelvedFilesTreeDataProvider
    */
   async _getUserChangelists(element) {
     const user = element.user;
-    let arrChangelists = this._userClMap.get(user);
+    let changelistInfos = this._userClMap.get(user);
+    if (!changelistInfos) {
+      const infos = await this._perforce.getChangeListInfoForUser(user);
+      changelistInfos = infos.map((i) => i.changelistNumber);
+      this._userClMap.set(user, changelistInfos);
 
-    if (!arrChangelists) {
-      arrChangelists = await this._fetchUserChangelists(user);
-      this._userClMap.set(user, arrChangelists);
+      for (const info of infos) {
+        this._clInfoMap.set(info.changelistNumber, info);
+      }
     }
 
-    if (!arrChangelists || arrChangelists.length === 0) {
+    if (!changelistInfos || changelistInfos.length === 0) {
       return [this._createInfoItem(`No pending changelists for ${user}`)];
     }
 
-    return arrChangelists.map((changelist) => {
-      const label = `CL ${changelist}`;
+    return changelistInfos.map((changelist) => {
+      const info = this._clInfoMap.get(changelist) || { description: '' };
+      const fullDesc = info.description || '';
+      const firstLine = fullDesc.split(/\r?\n/).find((l) => l.trim().length > 0) || '';
+      const truncated = firstLine.length > 60 ? firstLine.slice(0, 57) + '…' : firstLine;
+
+      const tooltipLines = [`${user} — CL ${changelist}`];
+      if (info.date) {
+        tooltipLines.push(`Date: ${info.date}`);
+      }
+      if (info.submitState) {
+        tooltipLines.push(`State: ${info.submitState === SubmitStates.PENDING ? 'Pending' : 'Submitted'}`);
+      }
+      if (fullDesc.trim().length > 0) {
+        tooltipLines.push('', fullDesc.trim());
+      }
+
+      const label = truncated ? `CL ${changelist}: ${truncated}` : `CL ${changelist}`;
       const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
-      item.tooltip = `${user} — ${label}`;
+      item.tooltip = tooltipLines.join('\n');
       item.description = user;
-      item.iconPath = new vscode.ThemeIcon('git-commit');
+
+      if (info.submitState === SubmitStates.PENDING) {
+        item.iconPath = new vscode.ThemeIcon('git-commit', new vscode.ThemeColor('gitDecoration.untrackedResourceForeground'));
+      }
+      else if (info.submitState === SubmitStates.SUBMITTED) {
+        item.iconPath = new vscode.ThemeIcon('git-commit', new vscode.ThemeColor('gitDecoration.ignoredResourceForeground'));
+      }
+
       item.contextValue = 'changelist';
       item.user = user;
       item.cl = changelist;
@@ -185,18 +218,128 @@ export class ShelvedFilesTreeDataProvider
    */
   async _getChangelistsChildren(element) {
     const changelist = element.cl;
-    let arrFiles = this._clFilesMap.get(changelist);
+    let info = this._clInfoMap.get(changelist);
 
-    if (!arrFiles) {
-      arrFiles = await this._fetchShelvedFiles(changelist);
-      this._clFilesMap.set(changelist, arrFiles);
-    }
+    await this._ensureChangelistFilesLoaded(changelist, element.user);
 
-    if (!arrFiles || arrFiles.length === 0) {
+    if (!info || !info.files || info.files.length === 0) {
       return [this._createInfoItem(`No shelved files in CL ${changelist}`)];
     }
 
-    return this._toFileItems(arrFiles, changelist, element.user);
+    return this._toFileItems(info.files, changelist, element.user);
+  }
+
+  /**
+   * @description Ensures shelved file list is loaded for the given changelist. Attempts a batch fetch for all of the user's changelists first, then falls back to a single fetch.
+   * @param {number} changelist Changelist number.
+   * @param {string|undefined} user User who owns the changelist.
+   * @returns {Promise<void>}
+   */
+  async _ensureChangelistFilesLoaded(changelistNumber, user) {
+    if (this._hasFilesLoaded(changelistNumber)) {
+      return;
+    }
+
+    if (user) {
+      await this._LoadAllFilesForUser(user);
+      if (this._hasFilesLoaded(changelistNumber)) {
+        return;
+      }
+    }
+
+    await this._loadFilesForSingleChangelist(changelistNumber);
+  }
+
+  /**
+   * @description Returns true if files are already loaded for the changelist.
+   * @param {number} changelistNumber Changelist number.
+   * @returns {boolean}
+   */
+  _hasFilesLoaded(changelistNumber) {
+    const info = this._clInfoMap.get(changelistNumber);
+    return !!(info && Array.isArray(info.files));
+  }
+
+  /**
+   * @description Attempts to batch load missing shelved/submitted files for all of a user's changelists.
+   * @param {string} user User to batch load for.
+   * @returns {Promise<void>}
+   */
+  async _LoadAllFilesForUser(user) {
+    const changelistNumbers = this._userClMap.get(user);
+    if (!Array.isArray(changelistNumbers) || changelistNumbers.length === 0) {
+      return;
+    }
+
+    const missing = changelistNumbers.filter((changelistNumber) => {
+      const info = this._clInfoMap.get(changelistNumber);
+      return !info || !Array.isArray(info.files);
+    });
+
+    if (missing.length === 0) {
+      return;
+    }
+
+    try {
+      const pendingList = [];
+      const submittedList = [];
+      for (const changelistNumber of missing) {
+        const info = this._clInfoMap.get(changelistNumber);
+        if (info && info.submitState === SubmitStates.PENDING) {
+          pendingList.push(changelistNumber);
+        }
+        else {
+          submittedList.push(changelistNumber);
+        }
+      }
+
+      const mapShelved = pendingList.length > 0 ? await this._perforce.getShelvedFilesFromChangelists(pendingList) : new Map();
+      const mapSubmitted = submittedList.length > 0 ? await this._perforce.getSubmittedFilesFromChangelists(submittedList) : new Map();
+
+      for (const changelistNumber of missing) {
+        const info = this._clInfoMap.get(changelistNumber);
+        if (!info) {
+          continue;
+        }
+
+        if (mapShelved.has(changelistNumber)) {
+          info.files = mapShelved.get(changelistNumber);
+        }
+        else if (mapSubmitted.has(changelistNumber)) {
+          info.files = mapSubmitted.get(changelistNumber);
+        }
+      }
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Perforce error loading shelved files (batch) for user ${user}: ${err?.message || String(err)}`);
+    }
+  }
+
+  /**
+   * @description Loads files for a single changelist if still missing after any batch attempt.
+   * @param {number} changelistNumber Changelist number.
+   * @returns {Promise<void>}
+   */
+  async _loadFilesForSingleChangelist(changelistNumber) {
+    const info = this._clInfoMap.get(changelistNumber);
+    if (!info || !info.files) {
+      return;
+    }
+
+    try {
+      if (info.submitState === SubmitStates.PENDING) {
+        info.files = await this._perforce.getShelvedFilesFromChangelist(changelistNumber);
+      }
+      else {
+        const submittedMap = await this._perforce.getSubmittedFilesFromChangelists([changelistNumber]);
+        if (submittedMap.has(changelistNumber)) {
+          info.files = submittedMap.get(changelistNumber);
+        }
+      }
+    }
+    catch (err) {
+      vscode.window.showErrorMessage(`Perforce error loading shelved files for CL ${changelistNumber}: ${err?.message || String(err)}`);
+    }
   }
 
   /**
@@ -225,8 +368,7 @@ export class ShelvedFilesTreeDataProvider
    * @returns {vscode.TreeItem[]}
    */
   _toFileItems(arrFiles, cl, user) {
-    return arrFiles.map((file) =>
-    {
+    return arrFiles.map((file) => {
       const item = new vscode.TreeItem(file, vscode.TreeItemCollapsibleState.None);
       item.tooltip = file;
       item.description = '';
@@ -239,44 +381,11 @@ export class ShelvedFilesTreeDataProvider
   }
 
   /**
-   * Loads the list of shelved changelists for a user via Perforce.
-   * @param {string} user Perforce user.
-   * @returns {Promise<number[]>}
-   */
-  async _fetchUserChangelists(user) {
-    try {
-      const arrCls = await this._perforce.getPendingChangelistsForUser(user);
-      return arrCls;
-    }
-    catch (err) {
-      vscode.window.showErrorMessage(`Perforce error loading changelists for ${user}: ${err?.message || String(err)}`);
-      return [];
-    }
-  }
-
-  /**
-   * Loads the list of shelved files for a changelist via Perforce.
-   * @param {number} cl Changelist number.
-   * @returns {Promise<string[]>}
-   */
-  async _fetchShelvedFiles(cl) {
-    try {
-      const arrFiles = await this._perforce.getShelvedFilesFromChangelist(cl);
-      return arrFiles;
-    }
-    catch (err) {
-      vscode.window.showErrorMessage(`Perforce error loading shelved files for CL ${cl}: ${err?.message || String(err)}`);
-      return [];
-    }
-  }
-
-  /**
    * Creates a simple non-collapsible informational TreeItem.
    * @param {string} label Label to display.
    * @returns {vscode.TreeItem}
    */
-  _createInfoItem(label)
-  {
+  _createInfoItem(label) {
     const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
     item.contextValue = 'info';
     item.iconPath = new vscode.ThemeIcon('info');

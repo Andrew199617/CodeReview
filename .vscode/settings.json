@@ -2,4 +2,11 @@
   "workbench.iconTheme": "material-icon-theme",
   "cSpell.minWordLength": 4,
   "cSpell.allowCompoundWords": true,
+  "github.copilot.enable": {
+    "*": true,
+    "**/.vscode/**": false,
+    "**/node_modules/**": false,
+    "**/typings/**": false,
+    "**/reviews/**": false
+  }
 }

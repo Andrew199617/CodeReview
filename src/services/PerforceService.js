@@ -1,4 +1,5 @@
 import { execa } from 'execa';
+import { ChangeListInfo, SubmitStates } from './ChangeListInfo.js';
 
 /**
  * @description Thin wrapper around the Perforce `p4` CLI used by the tools and the VS Code extension. Provides helpers to check availability, describe changelists, and retrieve diffs.
@@ -103,6 +104,12 @@ export class PerforceService {
    */
   async run(strCmd, arrArgs) {
     const { stdout } = await execa(strCmd, arrArgs);
+
+    if (true) {
+      console.log(`Running command: ${strCmd} ${arrArgs.join(' ')}`);
+      console.log(`Output: ${stdout}`);
+    }
+
     return stdout;
   }
 
@@ -218,6 +225,55 @@ export class PerforceService {
     return arrFiles;
   }
 
+  /**
+   * @description Returns a map of changelist number -> unique shelved file list using a single `p4 describe -s -S` call for all provided changelists.
+   * @param {number[]} changelistNumbers Array of changelist numbers.
+   * @returns {Promise<Map<number, string[]>>}
+   */
+  async getShelvedFilesFromChangelists(changelistNumbers) {
+    const result = new Map();
+    if (!Array.isArray(changelistNumbers) || changelistNumbers.length === 0) {
+      return result;
+    }
+
+    if (!await this._ensureAvailable()) {
+      return result;
+    }
+
+    const arrArgs = ['describe', '-s', '-S', ...changelistNumbers.map((n) => String(n))];
+    const out = await this.run('p4', this._buildArgs(arrArgs));
+    const reHeader = /^Change\s+(\d+)\b/;
+    const reFile = /^\.\.\.\s+(\/\/\S+?)#(\d+)\s+\w+/;
+    let currentCl = undefined;
+    let currentSet = undefined;
+
+    for (const line of String(out || '').split(/\r?\n/)) {
+      const mHead = line.match(reHeader);
+      if (mHead) {
+        currentCl = Number(mHead[1]);
+        currentSet = new Set();
+        result.set(currentCl, []);
+        continue;
+      }
+
+      if (!currentCl) {
+        continue;
+      }
+
+      const mFile = line.match(reFile);
+      if (mFile) {
+        const depotPath = this.sanitizeDepotPath(mFile[1]);
+        if (!currentSet.has(depotPath)) {
+          currentSet.add(depotPath);
+          const arr = result.get(currentCl);
+          arr.push(depotPath);
+        }
+      }
+    }
+
+    return result;
+  }
+
   /** Returns unified diff between two revisions via `p4 diff2 -du`. */
   async getUnifiedDiffBetweenRevs(strDepotFile, nFromRev, nToRev) {
     const lhs = `${strDepotFile}#${nFromRev}`;
@@ -236,7 +292,6 @@ export class PerforceService {
     return out;
   }
 
-  /** Normalizes/sanitizes depot paths if needed. Currently a passthrough. */
   /**
    * @description Normalizes or sanitizes depot paths. Currently passthrough for potential future logic.
    * @param {string} strPath Raw depot path.
@@ -263,5 +318,103 @@ export class PerforceService {
     }
 
     return arr;
+  }
+
+  /**
+   * @description Returns fully populated ChangeListInfo objects for a user using a single `p4 changes -l -u <user>` call.
+   * Parses changelist number, date, submit state (*pending*), and multi-line description.
+   * @param {string} strUser Perforce user.
+   * @returns {Promise<ChangeListInfo[]>}
+   */
+  async getChangeListInfoForUser(strUser) {
+    if (!await this._ensureAvailable()) {
+      return [];
+    }
+
+    const out = await this.run('p4', this._buildArgs(['changes', '-l', '-u', String(strUser)]));
+    const result = [];
+    let current = undefined;
+    const headerRegex = /^Change\s+(\d+)\s+on\s+(\d{4}\/\d{2}\/\d{2})\s+by\s+(\S+)(?:\s+\*pending\*)?/;
+
+    let description = '';
+    for (const rawLine of String(out || '').split(/\r?\n/)) {
+      const line = rawLine;
+      const headerMatch = line.match(headerRegex);
+      if (headerMatch) {
+        if (current) {
+          result.push(current);
+        }
+
+        const number = Number(headerMatch[1]);
+        const date = headerMatch[2];
+        const pending = line.includes('*pending*') ? SubmitStates.PENDING : SubmitStates.SUBMITTED;
+        current = new ChangeListInfo(number, description, undefined, pending, date);
+        description = '';
+        continue;
+      }
+
+      if (!current || line.trim().length === 0) {
+        continue;
+      }
+
+      if (/^[\t ]+/.test(line)) {
+        current.description += line.replace(/^\s+/, '');
+      }
+    }
+
+    if (current) {
+      result.push(current);
+    }
+
+    return result;
+  }
+
+  /**
+   * @description Returns a map of changelist -> submitted file list using a single `p4 describe -s` call.
+   * @param {number[]} changelistNumbers Changelist numbers.
+   * @returns {Promise<Map<number, string[]>>}
+   */
+  async getSubmittedFilesFromChangelists(changelistNumbers) {
+    const result = new Map();
+    if (!Array.isArray(changelistNumbers) || changelistNumbers.length === 0) {
+      return result;
+    }
+
+    if (!await this._ensureAvailable()) {
+      return result;
+    }
+
+    const arrArgs = ['describe', '-s', ...changelistNumbers.map((n) => String(n))];
+    const out = await this.run('p4', this._buildArgs(arrArgs));
+    const reHeader = /^Change\s+(\d+)\b/;
+    const reFile = /^\.\.\.\s+(\/\/\S+?)#(\d+)\s+\w+/;
+    let currentCl = undefined;
+    let currentSet = undefined;
+
+    for (const line of String(out || '').split(/\r?\n/)) {
+      const mHead = line.match(reHeader);
+      if (mHead) {
+        currentCl = Number(mHead[1]);
+        currentSet = new Set();
+        result.set(currentCl, []);
+        continue;
+      }
+
+      if (!currentCl) {
+        continue;
+      }
+
+      const mFile = line.match(reFile);
+      if (mFile) {
+        const depotPath = this.sanitizeDepotPath(mFile[1]);
+        if (!currentSet.has(depotPath)) {
+          currentSet.add(depotPath);
+          const arr = result.get(currentCl);
+          arr.push(depotPath);
+        }
+      }
+    }
+
+    return result;
   }
 }
