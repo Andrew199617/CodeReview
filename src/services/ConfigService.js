@@ -36,6 +36,16 @@ export class ConfigService {
   }
 
   /**
+   * Get the Swarm URL from configuration.
+   * @returns {string | undefined}
+   */
+  getSwarmUrl() {
+    const config = vscode.workspace.getConfiguration();
+    const swarmUrl = config.get('lgd.options.swarmUrl') || config.get('perforce.swarmUrl');
+    return swarmUrl && typeof swarmUrl === 'string' ? swarmUrl.trim().replace(/\/$/, '') : undefined;
+  }
+
+  /**
    * Get the OpenAI API key from configuration.
    * @returns {string | undefined} The OpenAI API key if set.
    */

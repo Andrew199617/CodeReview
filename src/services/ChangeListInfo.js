@@ -15,13 +15,14 @@ export const SubmitStates = {
  * Represents the information related to a change list.
  */
 export class ChangeListInfo {
-  constructor(changelistNumber, description, files, submitState = SubmitStates.PENDING, date = '', codeReviewState = CodeReviewStates.NEEDS_REVIEW) {
+  constructor(changelistNumber, description, files, submitState = SubmitStates.PENDING, date = '', codeReviewState = CodeReviewStates.NEEDS_REVIEW, swarmReviewId = undefined) {
     this.changelistNumber = changelistNumber;
     this.description = description;
     this.files = files;
     this.submitState = submitState;
     this.date = date;
     this.codeReviewState = codeReviewState;
+    this.swarmReviewId = swarmReviewId;
   }
-  
+
 }
