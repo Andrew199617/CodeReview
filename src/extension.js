@@ -1,23 +1,12 @@
 import * as vscode from 'vscode';
+import { PerforceContentProvider } from './extension/PerforceContentProvider.js';
 import { ShelvedFilesController } from './extension/ShelvedFilesController.js';
 import { ShelvedFilesTreeDataProvider } from './extension/ShelvedFilesTreeDataProvider.js';
 import { ConfigService } from './services/ConfigService.js';
 import { PerforceService } from './services/PerforceService.js';
 
 /**
- * @description Normalizes end of line characters to LF only.
- * @param {string} content Raw text content.
- * @returns {string} Normalized content.
- */
-function normalizeEols(content) {
-  if (content == null) {
-    return '';
-  }
-
-  return String(content).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-}
-
-/**
+ * @description Escapes a string for safe insertion into a RegExp pattern.
  * @description Escapes a string for safe insertion into a RegExp pattern.
  * @param {string} value Raw string to escape.
  * @returns {string} Escaped string safe for new RegExp().
@@ -33,16 +22,20 @@ function escapeRegex(value) {
  * @param {PerforceService} perforceService Service used to query Perforce.
  * @returns {Promise<void>} Resolves when diff is shown or an error is reported.
  */
-async function diffSelectedHandler(item, shelvedFilesTreeView, perforceService) {
+async function diffSelectedHandler(item, shelvedFilesTreeView, perforceService)
+{
   const depotFilePath = (typeof item === 'string') ? item : (item && item.label) ? item.label : undefined;
-  if (!depotFilePath) {
+  if (!depotFilePath)
+  {
     vscode.window.showInformationMessage('No file selected to diff.');
     return;
   }
 
-  try {
+  try
+  {
     const changeListNumber = (item && item.cl) ? item.cl : shelvedFilesTreeView.getCl();
-    if (!changeListNumber) {
+    if (!changeListNumber)
+    {
       vscode.window.showErrorMessage('No changelist loaded in the Shelved Files view.');
       return;
     }
@@ -50,7 +43,8 @@ async function diffSelectedHandler(item, shelvedFilesTreeView, perforceService) 
     const summary = await perforceService.getDescribeSummaryOutput(changeListNumber, true);
     const revisionRegex = new RegExp(`^\\.\\.\\.\\s+(${escapeRegex(depotFilePath)})#(\\d+)\\s+(\\w+)`, 'm');
     const revisionMatch = summary.match(revisionRegex);
-    if (!revisionMatch) {
+    if (!revisionMatch)
+    {
       vscode.window.showErrorMessage(`Could not find revision info for ${depotFilePath} in CL ${changeListNumber}.`);
       return;
     }
@@ -58,27 +52,13 @@ async function diffSelectedHandler(item, shelvedFilesTreeView, perforceService) 
     const revision = Number(revisionMatch[2]);
     const fromRevision = revision > 1 ? (revision - 1) : 0;
 
-    let leftContent = '';
-    if (fromRevision > 0) {
-      leftContent = await perforceService.getFileContentAtRevision(depotFilePath, fromRevision);
-    }
+    const leftUri = vscode.Uri.parse(`perforce-shelved:${depotFilePath}?rev=${fromRevision || 'base'}`);
+    const rightUri = vscode.Uri.parse(`perforce-shelved:${depotFilePath}?rev=${revision}`);
 
-    const rightContent = await perforceService.getFileContentAtRevision(depotFilePath, revision);
-
-    const leftText = normalizeEols(leftContent);
-    const rightText = normalizeEols(rightContent);
-
-    const leftUri = vscode.Uri.parse(`untitled:${depotFilePath}@${fromRevision || 'base'}`);
-    const rightUri = vscode.Uri.parse(`untitled:${depotFilePath}@${revision}`);
-
-    const edit = new vscode.WorkspaceEdit();
-    edit.insert(leftUri, new vscode.Position(0, 0), leftText);
-    edit.insert(rightUri, new vscode.Position(0, 0), rightText);
-
-    await vscode.workspace.applyEdit(edit);
     await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${depotFilePath} — ${fromRevision || 'base'} ↔ ${revision}`);
   }
-  catch (err) {
+  catch (err)
+  {
     const message = (err && err.message) ? err.message : String(err);
     vscode.window.showErrorMessage(`Diff error: ${message}`);
   }
@@ -89,8 +69,10 @@ async function diffSelectedHandler(item, shelvedFilesTreeView, perforceService) 
  * @param {any} item Tree item representing the changelist.
  * @param {ShelvedFilesTreeDataProvider} shelvedFilesTreeView Tree data provider instance.
  */
-async function refreshChangelist(item, shelvedFilesTreeView) {
-  if (!item || typeof item.cl !== 'number') {
+async function refreshChangelist(item, shelvedFilesTreeView)
+{
+  if (!item || typeof item.cl !== 'number')
+  {
     return;
   }
 
@@ -100,7 +82,10 @@ async function refreshChangelist(item, shelvedFilesTreeView) {
       cancellable: false,
       title: `Refreshing CL ${item.cl}`
     },
-    async () => { await shelvedFilesTreeView.reloadChangelist(item.cl, item.user); }
+    async () =>
+    {
+      await shelvedFilesTreeView.reloadChangelist(item.cl, item.user);
+    }
   );
 }
 
@@ -109,7 +94,8 @@ async function refreshChangelist(item, shelvedFilesTreeView) {
  * @param {vscode.ExtensionContext} context VS Code extension context.
  * @returns {Promise<void>} Resolves when activation completes.
  */
-export async function activate(context) {
+export async function activate(context)
+{
   const configService = new ConfigService();
   const reviewUsers = configService.getReviewUsers();
   const perforceConnection = configService.getPerforceConnection();
@@ -119,13 +105,22 @@ export async function activate(context) {
   const treeView = vscode.window.createTreeView('perforce.shelvedFiles', { treeDataProvider: shelvedFilesTreeView, showCollapseAll: false });
   const shelvedFilesTreeController = new ShelvedFilesController(shelvedFilesTreeView, perforceService, configService);
 
+  const contentProvider = new PerforceContentProvider(perforceService);
+  const cmdContentProvider = vscode.workspace.registerTextDocumentContentProvider('perforce-shelved', contentProvider);
+
   const cmdFetch = vscode.commands.registerCommand('perforce.shelvedFiles.find', shelvedFilesTreeController.promptAndFetch);
   const cmdDiffSelected = vscode.commands.registerCommand('perforce.shelvedFiles.diffSelected', async (item) => diffSelectedHandler(item, shelvedFilesTreeView, perforceService));
   const cmdRefreshChangelist = vscode.commands.registerCommand('perforce.shelvedFiles.refreshChangelist', item => refreshChangelist(item, shelvedFilesTreeView));
 
   await configService.ensureOpenAIConfig();
 
-  context.subscriptions.push(treeView, cmdFetch, cmdDiffSelected, cmdRefreshChangelist);
+  context.subscriptions.push(
+    treeView,
+    cmdFetch,
+    cmdDiffSelected,
+    cmdRefreshChangelist,
+    cmdContentProvider
+  );
 }
 
 /** @description Cleanup hook when the extension is deactivated. */
