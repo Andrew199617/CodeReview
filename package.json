@@ -90,6 +90,11 @@
         "command": "perforce.shelvedFiles.refreshChangelist",
         "title": "Refresh Changelist Files",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "perforce.shelvedFiles.retryLoadUser",
+        "title": "Retry Loading User Changelists",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -110,6 +115,11 @@
           "command": "perforce.shelvedFiles.refreshChangelist",
           "when": "view == perforce.shelvedFiles && viewItem == changelist",
           "group": "inline@2"
+        },
+        {
+          "command": "perforce.shelvedFiles.retryLoadUser",
+          "when": "view == perforce.shelvedFiles && viewItem == retryUserLoad",
+          "group": "inline@1"
         }
       ]
     }

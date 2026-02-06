@@ -105,6 +105,19 @@ async function refreshChangelist(item, shelvedFilesTreeView) {
 }
 
 /**
+ * @description Retries loading changelists for a user after an earlier Perforce failure.
+ * @param {any} item Tree item representing retry for a user.
+ * @param {ShelvedFilesTreeDataProvider} shelvedFilesTreeView Tree data provider instance.
+ */
+function retryLoadUser(item, shelvedFilesTreeView) {
+  if (!item || !item.user) {
+    return;
+  }
+
+  shelvedFilesTreeView.retryLoadUser(item.user);
+}
+
+/**
  * @description Entry point for the VS Code extension activation. Registers the shelved files view and command handlers.
  * @param {vscode.ExtensionContext} context VS Code extension context.
  * @returns {Promise<void>} Resolves when activation completes.
@@ -122,10 +135,11 @@ export async function activate(context) {
   const cmdFetch = vscode.commands.registerCommand('perforce.shelvedFiles.find', shelvedFilesTreeController.promptAndFetch);
   const cmdDiffSelected = vscode.commands.registerCommand('perforce.shelvedFiles.diffSelected', async (item) => diffSelectedHandler(item, shelvedFilesTreeView, perforceService));
   const cmdRefreshChangelist = vscode.commands.registerCommand('perforce.shelvedFiles.refreshChangelist', item => refreshChangelist(item, shelvedFilesTreeView));
+  const cmdRetryLoadUser = vscode.commands.registerCommand('perforce.shelvedFiles.retryLoadUser', item => retryLoadUser(item, shelvedFilesTreeView));
 
   await configService.ensureOpenAIConfig();
 
-  context.subscriptions.push(treeView, cmdFetch, cmdDiffSelected, cmdRefreshChangelist);
+  context.subscriptions.push(treeView, cmdFetch, cmdDiffSelected, cmdRefreshChangelist, cmdRetryLoadUser);
 }
 
 /** @description Cleanup hook when the extension is deactivated. */
