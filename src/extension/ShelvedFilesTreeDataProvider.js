@@ -458,7 +458,16 @@ export class ShelvedFilesTreeDataProvider {
     const item = new vscode.TreeItem('Retry', vscode.TreeItemCollapsibleState.None);
     item.contextValue = 'retryUserLoad';
     item.iconPath = new vscode.ThemeIcon('refresh');
-    item.tooltip = `Failed to load changelists for ${user}. Click to retry.`;
+
+    const errorMessage = this._userLoadErrorMap.get(user);
+    let tooltip = `Failed to load changelists for ${user}. Click to retry.`;
+
+    if (errorMessage) {
+      tooltip = `${tooltip} Last error: ${errorMessage}`;
+      item.description = errorMessage;
+    }
+
+    item.tooltip = tooltip;
     item.user = user;
     item.command = {
       command: 'perforce.shelvedFiles.retryLoadUser',
