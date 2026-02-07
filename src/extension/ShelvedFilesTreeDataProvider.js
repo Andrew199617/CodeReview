@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ChangeListInfo, SubmitStates } from '../services/ChangeListInfo.js';
+import { ChangeListInfo, SubmitStates } from '../Shared/ChangeListInfo.js';
 
 /**
  * Context values for tree items.
@@ -115,6 +115,33 @@ export class ShelvedFilesTreeDataProvider {
     this._userClMap.delete(user);
     this._userLoadErrorMap.delete(user);
     this.refresh();
+  }
+
+  /**
+   * @description Returns the files for a changelist, loading them if not already cached.
+   * @param {number} changelistNumber Changelist number.
+   * @param {string|undefined} user User who owns the changelist.
+   * @returns {Promise<string[]>} Array of depot file paths.
+   */
+  async getFilesForChangelist(changelistNumber, user) {
+    await this._ensureChangelistFilesLoaded(changelistNumber, user);
+
+    const info = this._clInfoMap.get(changelistNumber);
+    if (!info || !Array.isArray(info.files)) {
+      return [];
+    }
+
+    return info.files.slice();
+  }
+
+  /**
+   * @description Returns whether the changelist is pending (shelved) rather than submitted.
+   * @param {number} changelistNumber Changelist number.
+   * @returns {boolean}
+   */
+  isPendingChangelist(changelistNumber) {
+    const info = this._clInfoMap.get(changelistNumber);
+    return !info || info.submitState === SubmitStates.PENDING;
   }
 
   /**

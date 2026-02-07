@@ -1,5 +1,5 @@
 import path from 'path';
-import { ensureDir, readText, sanitizeFileName, writeText } from '../services/FsUtils.js';
+import { ensureDir, readText, sanitizeFileName } from '../Shared/FsUtils.js';
 
 export class CodeReviewRunner {
   constructor(perforce, reviewer) {
@@ -160,13 +160,13 @@ export class CodeReviewRunner {
   // --- Output ---
   writePerFileResult(outDir, { strDepotFile, strContent }) {
     const strFileName = sanitizeFileName(strDepotFile) + '.md';
-    writeText(path.join(outDir, strFileName), `# Review: ${strDepotFile}\n\n${strContent}\n`);
+    fs.writeFileSync(path.join(outDir, strFileName), `# Review: ${strDepotFile}\n\n${strContent}\n`);
   }
 
   async writeSummaryFile(outDir, arrResults, cl) {
     if (!arrResults.length) return;
     const strSummary = await this.reviewer.summarizeAcrossFiles(arrResults, cl);
-    writeText(path.join(outDir, 'summary.md'), strSummary);
+    fs.writeFileSync(path.join(outDir, 'summary.md'), strSummary);
   }
 
   // --- Concurrency helper ---

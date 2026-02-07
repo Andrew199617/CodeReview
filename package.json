@@ -95,6 +95,11 @@
         "command": "perforce.shelvedFiles.retryLoadUser",
         "title": "Retry Loading User Changelists",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "perforce.shelvedFiles.diffAll",
+        "title": "Diff All Files in Changelist",
+        "icon": "$(diff)"
       }
     ],
     "menus": {
@@ -110,6 +115,11 @@
           "command": "perforce.shelvedFiles.diffSelected",
           "when": "view == perforce.shelvedFiles && viewItem == shelvedFile",
           "group": "inline"
+        },
+        {
+          "command": "perforce.shelvedFiles.diffAll",
+          "when": "view == perforce.shelvedFiles && viewItem == changelist",
+          "group": "inline@1"
         },
         {
           "command": "perforce.shelvedFiles.refreshChangelist",
