@@ -487,12 +487,14 @@ export class ShelvedFilesTreeDataProvider {
     item.iconPath = new vscode.ThemeIcon('refresh');
 
     const errorMessage = this._userLoadErrorMap.get(user);
-    let tooltip = `Failed to load changelists for ${user}. Click to retry.`;
+    let tooltip = `Failed to load changelists for ${user}.`;
 
     if (errorMessage) {
-      tooltip = `${tooltip} Last error: ${errorMessage}`;
+      tooltip += ` Error: ${errorMessage}`;
       item.description = errorMessage;
     }
+
+    tooltip += ' Click to retry.';
 
     item.tooltip = tooltip;
     item.user = user;

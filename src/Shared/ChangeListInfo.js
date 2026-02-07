@@ -23,5 +23,5 @@ export class ChangeListInfo {
     this.date = date;
     this.codeReviewState = codeReviewState;
   }
-  
+
 }
