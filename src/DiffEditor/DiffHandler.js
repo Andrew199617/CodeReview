@@ -1,4 +1,6 @@
-import { normalizeEols } from "../Shared/FsUtils";
+import * as vscode from 'vscode';
+import { normalizeEols } from "../Shared/FsUtils.js";
+import { FullDiffProvider } from '../extension/FullDiffProvider.js';
 
 /**
  * @description Escapes a string for safe insertion into a RegExp pattern.
@@ -76,7 +78,7 @@ export async function diffSelectedFileHandler(item, shelvedFilesTreeView, perfor
  * @param {PerforceService} perforceService Service used to query Perforce.
  * @returns {Promise<void>}
  */
-export async function diffAllFileHandler(item, shelvedFilesTreeView, perforceService) {
+export async function diffAllFilesHandler(item, shelvedFilesTreeView, perforceService) {
   if (!item || typeof item.cl !== 'number') {
     return;
   }
