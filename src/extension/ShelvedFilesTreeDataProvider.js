@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ChangeListInfo, SubmitStates } from '../services/ChangeListInfo.js';
+import { ChangeListInfo, CodeReviewStates, SubmitStates } from '../services/ChangeListInfo.js';
 
 /**
  * Context values for tree items.
@@ -18,10 +18,15 @@ export class ShelvedFilesTreeDataProvider {
   /**
    * @param {string[]} reviewUsers The users to shelve files for.
    * @param {PerforceService} perforceService The Perforce service instance to use for fetching data.
+   * @param {ViewedStateService} viewedStateService The service to track viewed files.
+   * @param {ConfigService} configService The service to get configuration.
    */
-  constructor(reviewUsers, perforceService) {
+  constructor(reviewUsers, perforceService, viewedStateService, configService) {
     this._onDidChangeTreeData = new vscode.EventEmitter();
     this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+
+    this._viewedStateService = viewedStateService;
+    this._configService = configService;
 
     // Mode "cl" keeps backward-compat behavior for the manual Find CL command.
     // Mode "users" renders a hierarchy: Users -> Changelists -> Files.
@@ -184,13 +189,24 @@ export class ShelvedFilesTreeDataProvider {
     const user = element.user;
     let changelistInfos = this._userClMap.get(user);
     if (!changelistInfos) {
-      const infos = await this._perforce.getChangeListInfoForUser(user);
+      let swarmUrl = this._configService.getSwarmUrl();
+      if (!swarmUrl) {
+        swarmUrl = await this._perforce.getSwarmUrlFromProperty();
+      }
+
+      const infos = await this._perforce.getChangeListInfoForUser(user, swarmUrl, () => {
+        this._onDidChangeTreeData.fire(element);
+      });
+
       changelistInfos = infos.map((i) => i.changelistNumber);
       this._userClMap.set(user, changelistInfos);
 
       for (const info of infos) {
         this._clInfoMap.set(info.changelistNumber, info);
       }
+
+      // Prefetch files for these changelists
+      this._loadAllFilesForUser(user).catch((err) => console.error(err));
     }
 
     if (!changelistInfos || changelistInfos.length === 0) {
@@ -210,6 +226,9 @@ export class ShelvedFilesTreeDataProvider {
       if (info.submitState) {
         tooltipLines.push(`State: ${info.submitState === SubmitStates.PENDING ? 'Pending' : 'Submitted'}`);
       }
+      if (info.swarmReviewId) {
+        tooltipLines.push(`Swarm Review: ${info.swarmReviewId} (${info.codeReviewState})`);
+      }
       if (fullDesc.trim().length > 0) {
         tooltipLines.push('', fullDesc.trim());
       }
@@ -219,12 +238,11 @@ export class ShelvedFilesTreeDataProvider {
       item.tooltip = tooltipLines.join('\n');
       item.description = user;
 
-      if (info.submitState === SubmitStates.PENDING) {
-        item.iconPath = new vscode.ThemeIcon('git-commit', new vscode.ThemeColor('gitDecoration.untrackedResourceForeground'));
+      if (info.swarmReviewId) {
+        item.description = `${user} (Review: ${info.swarmReviewId})`;
       }
-      else if (info.submitState === SubmitStates.SUBMITTED) {
-        item.iconPath = new vscode.ThemeIcon('git-commit', new vscode.ThemeColor('gitDecoration.ignoredResourceForeground'));
-      }
+
+      this._setSwarmIcon(item, info);
 
       item.contextValue = 'changelist';
       item.user = user;
@@ -248,6 +266,60 @@ export class ShelvedFilesTreeDataProvider {
     }
 
     return this._toFileItems(info.files, changelist, element.user);
+  }
+
+  /**
+   * @description Sets the icon based on the Swarm review state and submit state.
+   * @param {vscode.TreeItem} item The tree item to set the icon for.
+   * @param {ChangeListInfo} info The changelist info.
+   */
+  _setSwarmIcon(item, info) {
+    if (!info) {
+      item.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('red'));
+      return;
+    }
+
+    if(info.loading) {
+      item.iconPath = new vscode.ThemeIcon('loading~spin', new vscode.ThemeColor('charts.gray'));
+      return;
+    }
+
+    if (info.codeReviewState) {
+      switch (info.codeReviewState) {
+        case CodeReviewStates.APPROVED:
+          item.iconPath = new vscode.ThemeIcon('check', new vscode.ThemeColor('testing.iconPassed'));
+          break;
+
+        case CodeReviewStates.REJECTED:
+          item.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('testing.iconFailed'));
+          break;
+
+        case CodeReviewStates.NEEDS_REVISION:
+          item.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('charts.orange'));
+          break;
+
+        case CodeReviewStates.ARCHIVED:
+          item.iconPath = new vscode.ThemeIcon('archive', new vscode.ThemeColor('charts.gray'));
+          break;
+
+        case CodeReviewStates.NEEDS_REVIEW:
+          item.iconPath = new vscode.ThemeIcon('eye', new vscode.ThemeColor('charts.blue'));
+          break;
+
+        default:
+          item.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('red'));
+          vscode.window.showErrorMessage(`Unknown code review state: ${info.codeReviewState}`);
+          break;
+      }
+    }
+    else {
+      if (info.submitState === SubmitStates.PENDING) {
+        item.iconPath = new vscode.ThemeIcon('git-commit', new vscode.ThemeColor('gitDecoration.untrackedResourceForeground'));
+      }
+      else if (info.submitState === SubmitStates.SUBMITTED) {
+        item.iconPath = new vscode.ThemeIcon('git-commit', new vscode.ThemeColor('gitDecoration.ignoredResourceForeground'));
+      }
+    }
   }
 
   /**
@@ -370,7 +442,24 @@ export class ShelvedFilesTreeDataProvider {
    */
   getTreeItem(element) {
     if (!element) {
-      return undefined;
+      // Update icon for viewed files
+      if (element.contextValue === 'shelvedFile') {
+        const isViewed = this._viewedStateService.isViewed(element.cl, element.label);
+        if (isViewed) {
+          element.iconPath = new vscode.ThemeIcon('check', new vscode.ThemeColor('testing.iconPassed'));
+        } else {
+          element.iconPath = new vscode.ThemeIcon('file');
+        }
+      }
+      // Update icon/description for Swarm status
+      else if (element.contextValue === 'changelist') {
+        const info = this._clInfoMap.get(element.cl);
+        if (info && info.swarmReviewId) {
+          element.description = `${element.description} (Swarm: ${info.swarmReviewId})`;
+          // Optionally add a custom icon or tooltip update here if desired
+          element.tooltip += `\nSwarm ID: ${info.swarmReviewId}`;
+        }
+      }
     }
 
     if (element instanceof vscode.TreeItem) {
@@ -392,7 +481,13 @@ export class ShelvedFilesTreeDataProvider {
       const item = new vscode.TreeItem(file, vscode.TreeItemCollapsibleState.None);
       item.tooltip = file;
       item.description = '';
-      item.iconPath = new vscode.ThemeIcon('file');
+
+      if (this._viewedStateService && this._viewedStateService.isViewed(cl, file)) {
+        item.iconPath = new vscode.ThemeIcon('check', new vscode.ThemeColor('testing.iconPassed'));
+      } else {
+        item.iconPath = new vscode.ThemeIcon('file');
+      }
+
       item.contextValue = 'shelvedFile';
       item.cl = cl;
       item.user = user;

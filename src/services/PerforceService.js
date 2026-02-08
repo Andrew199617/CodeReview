@@ -324,9 +324,11 @@ export class PerforceService {
    * @description Returns fully populated ChangeListInfo objects for a user using a single `p4 changes -l -u <user>` call.
    * Parses changelist number, date, submit state (*pending*), and multi-line description.
    * @param {string} strUser Perforce user.
+   * @param {string} [swarmUrl] Optional Swarm URL to fetch review status.
+   * @param {Function} [onUpdate] Optional callback to notify when background fetching updates a changelist.
    * @returns {Promise<ChangeListInfo[]>}
    */
-  async getChangeListInfoForUser(strUser) {
+  async getChangeListInfoForUser(strUser, swarmUrl, onUpdate) {
     if (!await this._ensureAvailable()) {
       return [];
     }
@@ -336,10 +338,10 @@ export class PerforceService {
     let current = undefined;
     const headerRegex = /^Change\s+(\d+)\s+on\s+(\d{4}\/\d{2}\/\d{2})\s+by\s+(\S+)(?:\s+\*pending\*)?/;
 
-    let description = '';
     for (const rawLine of String(out || '').split(/\r?\n/)) {
       const line = rawLine;
       const headerMatch = line.match(headerRegex);
+
       if (headerMatch) {
         if (current) {
           result.push(current);
@@ -348,8 +350,7 @@ export class PerforceService {
         const number = Number(headerMatch[1]);
         const date = headerMatch[2];
         const pending = line.includes('*pending*') ? SubmitStates.PENDING : SubmitStates.SUBMITTED;
-        current = new ChangeListInfo(number, description, undefined, pending, date);
-        description = '';
+        current = new ChangeListInfo(number, '', undefined, pending, date);
         continue;
       }
 
@@ -366,7 +367,57 @@ export class PerforceService {
       result.push(current);
     }
 
+    if (swarmUrl && result.length > 0) {
+      const initialFetchCount = 10;
+      const initialBatch = result.slice(0, initialFetchCount);
+
+      await Promise.all(initialBatch.map((cl) => this._populateSwarmInfo(cl, swarmUrl)));
+      if (onUpdate) {
+        onUpdate();
+      }
+
+      if (result.length > initialFetchCount) {
+        this._fetchRemainingReviews(result.slice(initialFetchCount), swarmUrl, onUpdate);
+      }
+    }
+
     return result;
+  }
+
+  /**
+   * @description Fetches Swarm info for a list of changelists in background batches.
+   * @param {ChangeListInfo[]} infoList List of changelists to fetch.
+   * @param {string} swarmUrl The Swarm URL.
+   * @param {Function} [onUpdate] Optional callback to notify when a batch is done.
+   * @returns {Promise<void>}
+   */
+  async _fetchRemainingReviews(infoList, swarmUrl, onUpdate) {
+    const batchSize = 10;
+    for (let i = 0; i < infoList.length; i += batchSize) {
+      const batch = infoList.slice(i, i + batchSize);
+      await Promise.all(batch.map((cl) => this._populateSwarmInfo(cl, swarmUrl)));
+      if (onUpdate) {
+        onUpdate();
+      }
+    }
+  }
+
+  /**
+   * @description Populates a ChangeListInfo object with Swarm review data.
+   * @param {ChangeListInfo} cl The changelist info object.
+   * @param {string} swarmUrl The Swarm URL.
+   * @returns {Promise<void>}
+   */
+  async _populateSwarmInfo(cl, swarmUrl) {
+    const review = await this.fetchSwarmReview(swarmUrl, cl.changelistNumber);
+    if (review) {
+      cl.swarmReviewId = review.id;
+      if (review.state) {
+        cl.codeReviewState = review.state;
+      }
+    }
+
+    cl.loading = false;
   }
 
   /**
@@ -416,5 +467,68 @@ export class PerforceService {
     }
 
     return result;
+  }
+
+  /**
+   * @description Attempts to resolve the Swarm URL via `p4 property`.
+   * @returns {Promise<string|undefined>}
+   */
+  async getSwarmUrlFromProperty() {
+    if (!await this._ensureAvailable()) {
+      return undefined;
+    }
+
+    try {
+      // p4 property -l -n swarm.url -F %value%
+      const out = await this.run('p4', this._buildArgs(['property', '-l', '-n', 'swarm.url', '-F', '%value%']));
+      const url = String(out || '').trim();
+      return url.length > 0 ? url.replace(/\/$/, '') : undefined;
+    } catch (e) {
+      return undefined;
+    }
+  }
+
+  /**
+   * @description Fetches the review status for a changelist from Swarm.
+   * @param {string} swarmUrl The base URL for Swarm.
+   * @param {number} changeNum The changelist number.
+   * @returns {Promise<{id: number, state: string}|undefined>}
+   */
+  async fetchSwarmReview(swarmUrl, changeNum) {
+    if (!swarmUrl || !changeNum) {
+      return undefined;
+    }
+
+    try {
+      // API: /api/v9/reviews?change=123
+      const url = `${swarmUrl}/api/v9/reviews?change=${changeNum}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cookie': 'review_preference_set=true; review_ui=preview; SWARM=oikf5hdsggf70ltn72caf1ovqs'
+        }
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        vscode.window.showErrorMessage(`Perforce error loading swarm info for CL ${changeNum}: ${response.statusText || String(response.status)}`);
+        return undefined;
+      }
+
+      // Expecting { lastSeen: ..., reviews: [ ... ], totalCount }
+      if (data && Array.isArray(data.reviews) && data.reviews.length > 0) {
+        const review = data.reviews[0]; // Take the first one found
+        return {
+          id: review.id,
+          state: review.state // e.g. 'needsReview', 'approved', etc.
+        };
+      }
+    }
+    catch (error) {
+      vscode.window.showErrorMessage(`Swarm fetch error for CL ${changeNum}: ${error.message || String(error)}`);
+      console.error(`Swarm fetch error for CL ${changeNum}:`, error);
+    }
+    return undefined;
   }
 }

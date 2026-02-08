@@ -4,6 +4,7 @@ import { ShelvedFilesController } from './extension/ShelvedFilesController.js';
 import { ShelvedFilesTreeDataProvider } from './extension/ShelvedFilesTreeDataProvider.js';
 import { ConfigService } from './services/ConfigService.js';
 import { PerforceService } from './services/PerforceService.js';
+import { ViewedStateService } from './services/ViewedStateService.js';
 
 /**
  * @description Escapes a string for safe insertion into a RegExp pattern.
@@ -98,18 +99,20 @@ export async function activate(context)
 {
   const configService = new ConfigService();
   const reviewUsers = configService.getReviewUsers();
-  const perforceConnection = configService.getPerforceConnection();
 
+  const perforceConnection = configService.getPerforceConnection();
   const perforceService = new PerforceService(perforceConnection);
-  const shelvedFilesTreeView = new ShelvedFilesTreeDataProvider(reviewUsers, perforceService);
+
+  const viewedStateService = new ViewedStateService(context.workspaceState);
+  const shelvedFilesTreeView = new ShelvedFilesTreeDataProvider(reviewUsers, perforceService, viewedStateService, configService);
   const treeView = vscode.window.createTreeView('perforce.shelvedFiles', { treeDataProvider: shelvedFilesTreeView, showCollapseAll: false });
-  const shelvedFilesTreeController = new ShelvedFilesController(shelvedFilesTreeView, perforceService, configService);
+  const shelvedFilesTreeController = new ShelvedFilesController(shelvedFilesTreeView, perforceService, configService, viewedStateService);
 
   const contentProvider = new PerforceContentProvider(perforceService);
   const cmdContentProvider = vscode.workspace.registerTextDocumentContentProvider('perforce-shelved', contentProvider);
 
   const cmdFetch = vscode.commands.registerCommand('perforce.shelvedFiles.find', shelvedFilesTreeController.promptAndFetch);
-  const cmdDiffSelected = vscode.commands.registerCommand('perforce.shelvedFiles.diffSelected', async (item) => diffSelectedHandler(item, shelvedFilesTreeView, perforceService));
+  const cmdDiffSelected = vscode.commands.registerCommand('perforce.shelvedFiles.diffSelected', (item) => shelvedFilesTreeController.diffSelected(item));
   const cmdRefreshChangelist = vscode.commands.registerCommand('perforce.shelvedFiles.refreshChangelist', item => refreshChangelist(item, shelvedFilesTreeView));
 
   await configService.ensureOpenAIConfig();
