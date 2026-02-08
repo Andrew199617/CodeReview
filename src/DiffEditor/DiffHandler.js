@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { FullDiffProvider } from '../extension/FullDiffProvider.js';
 import { escapeRegex } from '../Polyfill/Regex.js';
-import { normalizeEols } from "../Shared/FsUtils.js";
 
 
 /**
@@ -36,24 +35,9 @@ export async function diffSelectedFileHandler(item, shelvedFilesTreeView, perfor
     const revision = Number(revisionMatch[2]);
     const fromRevision = revision > 1 ? (revision - 1) : 0;
 
-    let leftContent = '';
-    if (fromRevision > 0) {
-      leftContent = await perforceService.getFileContentAtRevision(depotFilePath, fromRevision);
-    }
-
-    const rightContent = await perforceService.getFileContentAtRevision(depotFilePath, revision);
-
-    const leftText = normalizeEols(leftContent);
-    const rightText = normalizeEols(rightContent);
-
     const leftUri = vscode.Uri.parse(`untitled:${depotFilePath}@${fromRevision || 'base'}`);
     const rightUri = vscode.Uri.parse(`untitled:${depotFilePath}@${revision}`);
 
-    const edit = new vscode.WorkspaceEdit();
-    edit.insert(leftUri, new vscode.Position(0, 0), leftText);
-    edit.insert(rightUri, new vscode.Position(0, 0), rightText);
-
-    await vscode.workspace.applyEdit(edit);
     await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${depotFilePath} — ${fromRevision || 'base'} ↔ ${revision}`);
   }
   catch (err) {

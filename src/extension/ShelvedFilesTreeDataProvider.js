@@ -141,7 +141,7 @@ export class ShelvedFilesTreeDataProvider {
    */
   isPendingChangelist(changelistNumber) {
     const info = this._clInfoMap.get(changelistNumber);
-    return !info || info.submitState === SubmitStates.PENDING;
+    return info && info.submitState === SubmitStates.PENDING;
   }
 
   /**
@@ -251,10 +251,6 @@ export class ShelvedFilesTreeDataProvider {
         this._userLoadErrorMap.set(user, err?.message || String(err));
         return [this._createRetryItem(user)];
       }
-    }
-
-    if (this._userLoadErrorMap.has(user) && (!changelistInfos || changelistInfos.length === 0)) {
-      return [this._createRetryItem(user)];
     }
 
     if (!changelistInfos || changelistInfos.length === 0) {
