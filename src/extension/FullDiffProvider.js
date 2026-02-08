@@ -40,6 +40,8 @@ export class FullDiffProvider {
       return normalizeEols(content);
     }
     catch (err) {
+      console.error(`[FullDiffProvider] Failed to fetch ${depotPath}#${revision}:`, err);
+      vscode.window.showErrorMessage(`Failed to load ${depotPath}#${revision}: ${err && err.message ? err.message : String(err)}`);
       return '';
     }
   }

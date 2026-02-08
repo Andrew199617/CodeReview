@@ -1,4 +1,6 @@
+import fs from 'fs';
 import path from 'path';
+import { escapeRegex } from '../Polyfill/Regex.js';
 import { ensureDir, readText, sanitizeFileName } from '../Shared/FsUtils.js';
 
 export class CodeReviewRunner {
@@ -44,7 +46,7 @@ export class CodeReviewRunner {
   extractUnifiedDiffForFile(strDescribe, strDepotFile) {
     const arrLines = strDescribe.split(/\r?\n/);
     const reHeader = /^==== .+ ====$/;
-    const reThisFile = new RegExp(`^==== .*${strDepotFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*====$`);
+    const reThisFile = new RegExp(`^==== .*${escapeRegex(strDepotFile)}.*====$`);
 
     let nStart = -1;
     for (let i = 0; i < arrLines.length; i++) {

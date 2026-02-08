@@ -1,15 +1,8 @@
 import * as vscode from 'vscode';
-import { normalizeEols } from "../Shared/FsUtils.js";
 import { FullDiffProvider } from '../extension/FullDiffProvider.js';
+import { escapeRegex } from '../Polyfill/Regex.js';
+import { normalizeEols } from "../Shared/FsUtils.js";
 
-/**
- * @description Escapes a string for safe insertion into a RegExp pattern.
- * @param {string} value Raw string to escape.
- * @returns {string} Escaped string safe for new RegExp().
- */
-function escapeRegex(value) {
-  return value.replace(/[.*+?^${}()|[\]\\/]/g, (rawChar) => `\\${rawChar}`);
-}
 
 /**
  * @description Handles diff display for the selected shelved file.
