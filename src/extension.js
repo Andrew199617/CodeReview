@@ -24,7 +24,7 @@ export async function activate(context) {
   const contentProvider = vscode.workspace.registerTextDocumentContentProvider(FullDiffProvider.scheme, new FullDiffProvider(perforceService));
 
   const cmdFetch = vscode.commands.registerCommand('perforce.shelvedFiles.find', shelvedFilesTreeController.promptAndFetch);
-  const cmdDiffSelected = vscode.commands.registerCommand('perforce.shelvedFiles.diffSelected', async (item) => diffSelectedFileHandler(item, shelvedFilesTreeView, perforceService));
+  const cmdDiffSelected = vscode.commands.registerCommand('perforce.shelvedFiles.diffSelected', (item) => diffSelectedFileHandler(item, shelvedFilesTreeView, perforceService));
   const cmdDiffAll = vscode.commands.registerCommand('perforce.shelvedFiles.diffAll', (item) => diffAllFilesHandler(item, shelvedFilesTreeView, perforceService));
   const cmdRefreshChangelist = vscode.commands.registerCommand('perforce.shelvedFiles.refreshChangelist', item => shelvedFilesTreeController.refreshChangelist(item));
   const cmdRetryLoadUser = vscode.commands.registerCommand('perforce.shelvedFiles.retryLoadUser', item => shelvedFilesTreeController.retryLoadUser(item));
