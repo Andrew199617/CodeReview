@@ -1,4 +1,4 @@
-import { PerforceService } from '../services/PerforceService.js';
+import { PerforceService } from '../Shared/PerforceService.js';
 import { getShelvedViewHtml } from './webviewHtml.js';
 
 export class ShelvedFilesViewProvider {

@@ -1,14 +1,19 @@
 import fs from 'fs';
 import path from 'path';
 
-export function ensureDir(strDir) 
+export function ensureDir(strDir)
 {
   fs.mkdirSync(strDir, { recursive: true });
 }
 
-export function sanitizeFileName(strName) 
+export function sanitizeFileName(strName)
 {
   return strName.replace(/[\\/:*?"<>|]/g, '_');
+}
+
+export function readText(strFile)
+{
+  return fs.readFileSync(path.resolve(strFile), 'utf8');
 }
 
 /**
@@ -16,22 +21,10 @@ export function sanitizeFileName(strName)
  * @param {string} content Raw text content.
  * @returns {string} Normalized content.
  */
-export function normalizeEols(content) 
-{
-  if (content == null) 
-  {
+export function normalizeEols(content) {
+  if (content == null) {
     return '';
   }
 
   return String(content).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-}
-
-export function readText(strFile) 
-{
-  return fs.readFileSync(path.resolve(strFile), 'utf8');
-}
-
-export function writeText(strFile, strContent) 
-{
-  fs.writeFileSync(strFile, strContent);
 }

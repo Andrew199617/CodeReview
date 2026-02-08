@@ -183,7 +183,7 @@ export class ConfigService {
       if (apiKey) {
         const ok = await this.setOpenAIKey(apiKey);
         if (!ok) return false;
-      } 
+      }
       else {
         vscode.window.showErrorMessage('OpenAI API Key is required for AI commands.');
         return false;
@@ -200,7 +200,7 @@ export class ConfigService {
       if (model) {
         const ok = await this.setOpenAIModel(model);
         if (!ok) return false;
-      } 
+      }
       else {
         vscode.window.showErrorMessage('OpenAI Model is required for AI commands.');
         return false;

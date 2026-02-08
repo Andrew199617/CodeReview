@@ -2,6 +2,10 @@
 applyTo: '**'
 ---
 
+# Project Overview
+
+This project is a Visual Studio Code extension that provides a tree view of shelved files in Perforce for specified users. It allows users to easily view and diff shelved files directly within VS Code. The idea is to make it easier for developers to review other people's code by providing a better Code Review Experience than what Perforce's Swarm provides.
+
 # General Instructions
 
 Pretend you are a senior developer making code that will be as maintainable as possible. When adding code to a class check to see if you can improve how you add new code. Seeing if you should add new methods or classes instead of inlining everything.
@@ -24,7 +28,7 @@ Good:
 /** @returns {number[]} Returns a list of shelved changelist numbers for the given user. */
 ```
 
-Don't describe an empty function or constructor. 
+Don't describe an empty function or constructor.
 Bad:
 ```
 /**
@@ -33,12 +37,12 @@ Bad:
 constructor() {
 }
 ```
-Good: 
+Good:
 ```
 constructor() { }
 ```
 
-Always add braces to an if statement. 
+Always add braces to an if statement.
 Good:
 ```
 if(bool) {
@@ -68,8 +72,8 @@ const strBody = arrLines.slice(nStart, nEnd).join('\n');
 Good:
 ```
 for (let i = nStart; i < arrLines.length; i++) {
-  if (reHeader.test(arrLines[i])) { 
-    nEnd = i; break; 
+  if (reHeader.test(arrLines[i])) {
+    nEnd = i; break;
   }
 }
 
@@ -92,7 +96,7 @@ Bad:
 if (!m_isInPanel1) {
     m_isInPanel1 = false;
 }
-or 
+or
 bool bPointRight = this.IsCollapsed ? true : false;
 ```
 
@@ -141,10 +145,10 @@ Good because elses are on their own line.:
 ```
 if (apiKey) {
   return true;
-} 
+}
 else if (value) {
   return false;
-} 
+}
 else {
   return false;
 }
@@ -183,7 +187,7 @@ async ensureOpenAIConfig() {
 }
 ```
 Good we broke out the repeated code:
-```   
+```
 async ensureOpenAIConfig() {
   const apiKey = await this.promptForSettings('Enter your OpenAI API Key', this.getOpenAIKey());
   if (!apiKey) return false;
@@ -211,7 +215,7 @@ promptForSettings(prompt, setting) {
   return !!setting;
 }
 
-Group local variables into logical chunks. 
+Group local variables into logical chunks.
 Bad because too many variables in a row without line break.:
 ```
 let leftContent = '';

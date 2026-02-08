@@ -4,12 +4,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { AIReviewer } from './CodeReview/AIReviewer.js';
 import { CodeReviewRunner } from './CodeReview/CodeReviewRunner.js';
-import { PerforceService } from './services/PerforceService.js';
+import { PerforceService } from './Shared/PerforceService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-async function main() 
+async function main()
 {
   const program = new Command();
   program
@@ -42,12 +42,12 @@ async function main()
   const runner = new CodeReviewRunner(perforce, reviewer);
 
   // Dry-run shortcut: reuse runner’s extract and perforce calls
-  if (opts.dryRun) 
+  if (opts.dryRun)
   {
     const strDescribe = await perforce.getDescribeOutput(nCl, !!opts.shelved);
     const arrFiles = runner.parseDepotFilesFromDescribe(strDescribe);
     console.log(`Changelist ${nCl} files:`);
-    for (const strDepotFile of arrFiles) 
+    for (const strDepotFile of arrFiles)
     {
       const strDiff = runner.extractUnifiedDiffForFile(strDescribe, strDepotFile);
       const strPreview = strDiff.split(/\r?\n/).slice(0, 40).join('\n');
@@ -55,7 +55,7 @@ async function main()
       console.log(strPreview);
       console.log('---');
     }
-    
+
     console.log('Dry run complete.');
     return;
   }

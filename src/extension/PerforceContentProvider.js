@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { normalizeEols } from '../services/FsUtils.js';
+import { normalizeEols } from '../Shared/FsUtils.js';
 
 /**
  * @description Provides read-only content from Perforce for a given URI.
@@ -8,13 +8,13 @@ import { normalizeEols } from '../services/FsUtils.js';
 export class PerforceContentProvider
 {
   /**
-   * @param {import('../services/PerforceService.js').PerforceService} perforceService The Perforce service instance.
+   * @param {import('../Shared/PerforceService.js').PerforceService} perforceService The Perforce service instance.
    */
   constructor(perforceService)
   {
     /**
      * @description The Perforce service instance.
-     * @type {import('../services/PerforceService.js').PerforceService}
+     * @type {import('../Shared/PerforceService.js').PerforceService}
      */
     this._perforceService = perforceService;
   }
