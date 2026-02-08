@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ChangeListInfo, SubmitStates } from '../services/ChangeListInfo.js';
+import { ChangeListInfo, SubmitStates } from '../Shared/ChangeListInfo.js';
 
 /**
  * Context values for tree items.
@@ -48,6 +48,12 @@ export class ShelvedFilesTreeDataProvider {
      */
     this._clInfoMap = new Map();
 
+    /**
+     * @description Map of user -> last load error message when changelists failed to load.
+     * @type {Map<string, string>}
+     */
+    this._userLoadErrorMap = new Map();
+
     this._perforce = perforceService;
 
     if (reviewUsers.length > 0) {
@@ -71,6 +77,7 @@ export class ShelvedFilesTreeDataProvider {
     this._users = Array.isArray(arrUsers) ? arrUsers.filter((u) => !!u).map((u) => String(u).trim()).filter((u) => u.length > 0) : [];
     this._userClMap.clear();
     this._clInfoMap.clear();
+    this._userLoadErrorMap.clear();
     this._cl = undefined;
     this._files = [];
     this._onDidChangeTreeData.fire();
@@ -89,6 +96,52 @@ export class ShelvedFilesTreeDataProvider {
   /** Forces a refresh of the view without changing the data. */
   refresh() {
     this._onDidChangeTreeData.fire();
+  }
+
+  /**
+   * @description Clears cached changelist state for a user and refreshes so data can be loaded again.
+   * @param {string} user User to retry loading changelists for.
+   */
+  retryLoadUser(user) {
+    if (!user) {
+      return;
+    }
+
+    const cachedChangelists = this._userClMap.get(user) || [];
+    for (const changelistNumber of cachedChangelists) {
+      this._clInfoMap.delete(changelistNumber);
+    }
+
+    this._userClMap.delete(user);
+    this._userLoadErrorMap.delete(user);
+    this.refresh();
+  }
+
+  /**
+   * @description Returns the files for a changelist, loading them if not already cached.
+   * @param {number} changelistNumber Changelist number.
+   * @param {string|undefined} user User who owns the changelist.
+   * @returns {Promise<string[]>} Array of depot file paths.
+   */
+  async getFilesForChangelist(changelistNumber, user) {
+    await this._ensureChangelistFilesLoaded(changelistNumber, user);
+
+    const info = this._clInfoMap.get(changelistNumber);
+    if (!info || !Array.isArray(info.files)) {
+      return [];
+    }
+
+    return info.files.slice();
+  }
+
+  /**
+   * @description Returns whether the changelist is pending (shelved) rather than submitted.
+   * @param {number} changelistNumber Changelist number.
+   * @returns {boolean}
+   */
+  isPendingChangelist(changelistNumber) {
+    const info = this._clInfoMap.get(changelistNumber);
+    return info && info.submitState === SubmitStates.PENDING;
   }
 
   /**
@@ -184,12 +237,19 @@ export class ShelvedFilesTreeDataProvider {
     const user = element.user;
     let changelistInfos = this._userClMap.get(user);
     if (!changelistInfos) {
-      const infos = await this._perforce.getChangeListInfoForUser(user);
-      changelistInfos = infos.map((i) => i.changelistNumber);
-      this._userClMap.set(user, changelistInfos);
+      try {
+        const infos = await this._perforce.getChangeListInfoForUser(user);
+        changelistInfos = infos.map((i) => i.changelistNumber);
+        this._userClMap.set(user, changelistInfos);
+        this._userLoadErrorMap.delete(user);
 
-      for (const info of infos) {
-        this._clInfoMap.set(info.changelistNumber, info);
+        for (const info of infos) {
+          this._clInfoMap.set(info.changelistNumber, info);
+        }
+      }
+      catch (err) {
+        this._userLoadErrorMap.set(user, err?.message || String(err));
+        return [this._createRetryItem(user)];
       }
     }
 
@@ -409,6 +469,36 @@ export class ShelvedFilesTreeDataProvider {
     const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
     item.contextValue = 'info';
     item.iconPath = new vscode.ThemeIcon('info');
+    return item;
+  }
+
+  /**
+   * Creates a retry item shown when user changelists fail to load.
+   * @param {string} user User that failed to load.
+   * @returns {vscode.TreeItem}
+   */
+  _createRetryItem(user) {
+    const item = new vscode.TreeItem('Retry', vscode.TreeItemCollapsibleState.None);
+    item.contextValue = 'retryUserLoad';
+    item.iconPath = new vscode.ThemeIcon('refresh');
+
+    const errorMessage = this._userLoadErrorMap.get(user);
+    let tooltip = `Failed to load changelists for ${user}.`;
+
+    if (errorMessage) {
+      tooltip += ` Error: ${errorMessage}`;
+      item.description = errorMessage;
+    }
+
+    tooltip += ' Click to retry.';
+
+    item.tooltip = tooltip;
+    item.user = user;
+    item.command = {
+      command: 'perforce.shelvedFiles.retryLoadUser',
+      title: 'Retry Load User Changelists',
+      arguments: [item]
+    };
     return item;
   }
 }

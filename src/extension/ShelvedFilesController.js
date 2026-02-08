@@ -51,6 +51,37 @@ export class ShelvedFilesController {
   }
 
   /**
+   * @description Refreshes the specified changelist in the shelved files view.
+   * @param {any} item Tree item representing the changelist.
+   */
+  async refreshChangelist(item) {
+    if (!item || typeof item.cl !== 'number') {
+      return;
+    }
+
+    await vscode.window.withProgress(
+      {
+        location: { viewId: 'perforce.shelvedFiles' },
+        cancellable: false,
+        title: `Refreshing CL ${item.cl}`
+      },
+      async () => { await this.tree.reloadChangelist(item.cl, item.user); }
+    );
+  }
+
+  /**
+   * @description Retries loading changelists for a user after an earlier Perforce failure.
+   * @param {any} item Tree item representing retry for a user.
+   */
+  retryLoadUser(item) {
+    if (!item || !item.user) {
+      return;
+    }
+
+    this.tree.retryLoadUser(item.user);
+  }
+
+  /**
    * Fetches shelved files for the given changelist using `p4 describe -s -S`.
    * Updates the tree with results or shows an error message on failure.
    */

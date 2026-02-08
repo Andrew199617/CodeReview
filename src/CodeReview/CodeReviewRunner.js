@@ -1,5 +1,7 @@
+import fs from 'fs';
 import path from 'path';
-import { ensureDir, readText, sanitizeFileName, writeText } from '../services/FsUtils.js';
+import { escapeRegex } from '../Polyfill/Regex.js';
+import { ensureDir, readText, sanitizeFileName } from '../Shared/FsUtils.js';
 
 export class CodeReviewRunner {
   constructor(perforce, reviewer) {
@@ -44,7 +46,7 @@ export class CodeReviewRunner {
   extractUnifiedDiffForFile(strDescribe, strDepotFile) {
     const arrLines = strDescribe.split(/\r?\n/);
     const reHeader = /^==== .+ ====$/;
-    const reThisFile = new RegExp(`^==== .*${strDepotFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}.*====$`);
+    const reThisFile = new RegExp(`^==== .*${escapeRegex(strDepotFile)}.*====$`);
 
     let nStart = -1;
     for (let i = 0; i < arrLines.length; i++) {
@@ -160,13 +162,13 @@ export class CodeReviewRunner {
   // --- Output ---
   writePerFileResult(outDir, { strDepotFile, strContent }) {
     const strFileName = sanitizeFileName(strDepotFile) + '.md';
-    writeText(path.join(outDir, strFileName), `# Review: ${strDepotFile}\n\n${strContent}\n`);
+    fs.writeFileSync(path.join(outDir, strFileName), `# Review: ${strDepotFile}\n\n${strContent}\n`);
   }
 
   async writeSummaryFile(outDir, arrResults, cl) {
     if (!arrResults.length) return;
     const strSummary = await this.reviewer.summarizeAcrossFiles(arrResults, cl);
-    writeText(path.join(outDir, 'summary.md'), strSummary);
+    fs.writeFileSync(path.join(outDir, 'summary.md'), strSummary);
   }
 
   // --- Concurrency helper ---
