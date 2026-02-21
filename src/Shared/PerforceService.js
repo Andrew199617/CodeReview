@@ -1,4 +1,5 @@
 import { execa } from 'execa';
+import * as vscode from 'vscode';
 import { ChangeListInfo, SubmitStates } from './ChangeListInfo.js';
 
 /**
@@ -529,6 +530,7 @@ export class PerforceService {
       vscode.window.showErrorMessage(`Swarm fetch error for CL ${changeNum}: ${error.message || String(error)}`);
       console.error(`Swarm fetch error for CL ${changeNum}:`, error);
     }
+
     return undefined;
   }
 }
