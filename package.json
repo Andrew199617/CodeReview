@@ -1,0 +1,161 @@
+{
+  "name": "code-review-perforce",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "publisher": "local",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Andrew199617/CodeReview"
+  },
+  "displayName": "Perforce Code Review",
+  "description": "Adds a simple Perforce Code Review tool. Code review coworkers code from VSCode. Use your own styling to view code instead of Swarm.",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./src/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "LGD Options",
+      "properties": {
+        "lgd.options.reviewUsers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "List of Perforce usernames whose shelved changelists should appear in the Shelved Files view.",
+          "scope": "resource"
+        },
+        "lgd.options.perforceClient": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Perforce client/workspace (P4CLIENT) used for p4 commands.",
+          "scope": "resource"
+        },
+        "lgd.options.perforceUser": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Perforce user (P4USER) used for p4 commands.",
+          "scope": "resource"
+        },
+        "lgd.options.perforcePort": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Perforce server:port (P4PORT), e.g. perforce:1666.",
+          "scope": "resource"
+        },
+        "lgd.options.openAI.apiKey": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "OpenAI API key used for AI features (stored in user settings).",
+          "scope": "application"
+        },
+        "lgd.options.openAI.model": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "OpenAI model to use for AI features (e.g., gpt-5.0-mini-2025).",
+          "scope": "application"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "perforce",
+          "title": "Perforce Code Review",
+          "icon": "./media/perforce.svg"
+        }
+      ]
+    },
+    "views": {
+      "perforce": [
+        {
+          "id": "perforce.shelvedFiles",
+          "name": "Shelved Files",
+          "icon": "./media/perforce.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "perforce.shelvedFiles.find",
+        "title": "Find Shelved by CL"
+      },
+      {
+        "command": "perforce.shelvedFiles.diffSelected",
+        "title": "Diff Shelved File"
+      },
+      {
+        "command": "perforce.shelvedFiles.refreshChangelist",
+        "title": "Refresh Changelist Files",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "perforce.shelvedFiles.retryLoadUser",
+        "title": "Retry Loading User Changelists",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "perforce.shelvedFiles.diffAll",
+        "title": "Diff All Files in Changelist",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "perforce.toggleDiffMode",
+        "title": "Perforce: Toggle Diff Mode"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "perforce.toggleDiffMode",
+        "key": "shift+f9",
+        "when": "editorFocus"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "perforce.shelvedFiles.find",
+          "when": "view == perforce.shelvedFiles",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "perforce.shelvedFiles.diffSelected",
+          "when": "view == perforce.shelvedFiles && viewItem == shelvedFile",
+          "group": "inline"
+        },
+        {
+          "command": "perforce.shelvedFiles.diffAll",
+          "when": "view == perforce.shelvedFiles && viewItem == changelist",
+          "group": "inline@1"
+        },
+        {
+          "command": "perforce.shelvedFiles.refreshChangelist",
+          "when": "view == perforce.shelvedFiles && viewItem == changelist",
+          "group": "inline@2"
+        },
+        {
+          "command": "perforce.shelvedFiles.retryLoadUser",
+          "when": "view == perforce.shelvedFiles && viewItem == retryUserLoad",
+          "group": "inline@3"
+        }
+      ]
+    }
+  },
+  "bin": {
+    "code-review-perforce": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node ./src/index.js",
+    "review": "node ./src/index.js"
+  },
+  "dependencies": {
+    "@octokit/rest": "^22.0.1",
+    "commander": "^12.1.0",
+    "execa": "^9.6.1",
+    "openai": "^4.58.2"
+  }
+}

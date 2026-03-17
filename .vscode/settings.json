@@ -1,0 +1,21 @@
+{
+  "workbench.iconTheme": "material-icon-theme",
+  "cSpell.minWordLength": 4,
+  "cSpell.allowCompoundWords": true,
+  // Add these lines below:
+  "lgd.options.perforcePort": "checkhost.local:1666",
+  "lgd.options.perforceUser": "Zain",
+  "lgd.options.perforceClient": "victus",
+  
+  "github.copilot.enable": {
+    "*": true,
+    "**/.vscode/**": false,
+    "**/node_modules/**": false,
+    "**/typings/**": false,
+    "**/reviews/**": false
+  },
+  "search.exclude": {
+    "typings/**": true,
+    "typings.worktrees/**": true
+  }
+}
