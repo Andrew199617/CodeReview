@@ -17,27 +17,36 @@ export async function diffSelectedFileHandler(item, shelvedFilesTreeView, perfor
   }
 
   try {
-    const changeListNumber = (item && item.cl) ? item.cl : shelvedFilesTreeView.getCl();
-    if (!changeListNumber) {
-      vscode.window.showErrorMessage('No changelist loaded in the Shelved Files view.');
-      return;
-    }
+    await vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        cancellable: false,
+        title: `Loading diff`
+      },
+      async () => {
+        const changeListNumber = (item && item.cl) ? item.cl : shelvedFilesTreeView.getCl();
+        if (!changeListNumber) {
+          vscode.window.showErrorMessage('No changelist loaded in the Shelved Files view.');
+          return;
+        }
 
-    const summary = await perforceService.getDescribeSummaryOutput(changeListNumber, true);
-    const revisionRegex = new RegExp(`^\\.\\.\\.\\s+(${escapeRegex(depotFilePath)})#(\\d+)\\s+(\\w+)`, 'm');
-    const revisionMatch = summary.match(revisionRegex);
-    if (!revisionMatch) {
-      vscode.window.showErrorMessage(`Could not find revision info for ${depotFilePath} in CL ${changeListNumber}.`);
-      return;
-    }
+        const summary = await perforceService.getDescribeSummaryOutput(changeListNumber, true);
+        const revisionRegex = new RegExp(`^\\.\\.\\.\\s+(${escapeRegex(depotFilePath)})#(\\d+)\\s+(\\w+)`, 'm');
+        const revisionMatch = summary.match(revisionRegex);
+        if (!revisionMatch) {
+          vscode.window.showErrorMessage(`Could not find revision info for ${depotFilePath} in CL ${changeListNumber}.`);
+          return;
+        }
 
-    const revision = Number(revisionMatch[2]);
-    const fromRevision = revision > 1 ? (revision - 1) : 0;
+        const revision = Number(revisionMatch[2]);
+        const fromRevision = revision > 1 ? (revision - 1) : 0;
 
-    const leftUri = vscode.Uri.parse(`perforce-shelved:${depotFilePath}?rev=${fromRevision || 'base'}`);
-    const rightUri = vscode.Uri.parse(`perforce-shelved:${depotFilePath}?rev=${revision}`);
+        const leftUri = vscode.Uri.parse(`perforce-shelved:${depotFilePath}?rev=${fromRevision || 'base'}`);
+        const rightUri = vscode.Uri.parse(`perforce-shelved:${depotFilePath}?rev=${revision}`);
 
-    await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${depotFilePath} — ${fromRevision || 'base'} ↔ ${revision}`);
+        await vscode.commands.executeCommand('vscode.diff', leftUri, rightUri, `${depotFilePath} — ${fromRevision || 'base'} ↔ ${revision}`);
+      }
+    );
   }
   catch (err) {
     const message = (err && err.message) ? err.message : String(err);

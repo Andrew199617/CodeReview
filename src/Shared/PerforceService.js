@@ -530,6 +530,7 @@ export class PerforceService {
       vscode.window.showErrorMessage(`Swarm fetch error for CL ${changeNum}: ${error.message || String(error)}`);
       console.error(`Swarm fetch error for CL ${changeNum}:`, error);
     }
+
     return undefined;
   }
 }

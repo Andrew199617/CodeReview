@@ -40,13 +40,12 @@ export async function activate(context)
 
   context.subscriptions.push(
     treeView,
-    contentProvider,
+    cmdContentProvider,
     cmdFetch,
     cmdDiffSelected,
     cmdDiffAll,
     cmdRefreshChangelist,
-    cmdRetryLoadUser,
-    cmdContentProvider
+    cmdRetryLoadUser
   );
 }
 
