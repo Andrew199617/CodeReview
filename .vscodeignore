@@ -11,3 +11,8 @@ typings/
 tests/
 coverage/
 .github/
+
+node_modules/
+reviews/
+typings
+*.vsix

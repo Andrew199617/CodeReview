@@ -1,4 +1,5 @@
 import { execa } from 'execa';
+import * as vscode from 'vscode';
 import { ChangeListInfo, SubmitStates } from './ChangeListInfo.js';
 
 /**

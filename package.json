@@ -1,6 +1,6 @@
 {
   "name": "code-review-perforce",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "publisher": "local",
@@ -14,6 +14,14 @@
     "vscode": "^1.80.0"
   },
   "main": "./src/extension.js",
+  "activationEvents": [
+    "onView:perforce.shelvedFiles",
+    "onCommand:perforce.shelvedFiles.find",
+    "onCommand:perforce.shelvedFiles.diffSelected",
+    "onCommand:perforce.shelvedFiles.refreshChangelist",
+    "onCommand:perforce.shelvedFiles.retryLoadUser",
+    "onCommand:perforce.shelvedFiles.diffAll"
+  ],
   "contributes": {
     "configuration": {
       "title": "LGD Options",
@@ -139,11 +147,15 @@
   },
   "scripts": {
     "start": "node ./src/index.js",
-    "review": "node ./src/index.js"
+    "review": "node ./src/index.js",
+    "deploy": "vsce publish --no-yarn",
+    "package": "vsce package --no-yarn"
   },
   "dependencies": {
     "commander": "^12.1.0",
     "execa": "^9.3.0",
-    "openai": "^4.58.2"
+    "openai": "^4.58.2",
+    "vsce": "^2.15.0",
+    "vscode": "^1.1.37"
   }
 }
